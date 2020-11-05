@@ -1,0 +1,6 @@
+build-vars.sh
+.pytest_cache
+.netrc
+output/*
+output/.*
+!output/.keep
