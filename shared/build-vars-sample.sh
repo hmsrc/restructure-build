@@ -10,4 +10,4 @@ DB_USER=$(whoami)
 DB_PASSWORD=root
 DB_DEFAULT_SCHEMA=ml_app
 APP_DB_SEARCH_PATH=ml_app
-RSPEC_OPTIONS='rspec_extra_options: --exclude-pattern "**/features/**/*_spec.rb"'
+RSPEC_OPTIONS='--exclude-pattern "**/features/**/*_spec.rb"'

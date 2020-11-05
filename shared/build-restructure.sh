@@ -1,13 +1,13 @@
 #!/bin/bash
 
-source build-vars.sh
+source /shared/build-vars.sh
 
+PGSQLBIN=/usr/pgsql-10/bin
 export HOME=/root
+export PATH=${PGSQLBIN}:$PATH
 export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
 source $HOME/.bash_profile
 BUILD_DIR=/output/restructure
-
-ls /
 
 cp /shared/.netrc ${HOME}/.netrc
 chmod 600 ${HOME}/.netrc
@@ -19,21 +19,39 @@ export FPHS_POSTGRESQL_PASSWORD=${DB_PASSWORD}
 export FPHS_POSTGRESQL_SCHEMA=${APP_DB_SEARCH_PATH}
 export FPHS_POSTGRESQL_PORT=5432
 export FPHS_POSTGRESQL_HOSTNAME=localhost
-export FPHS_RAILS_DEVISE_SECRET_KEY='rake'
-export FPHS_RAILS_SECRET_KEY_BASE='rake'
+export FPHS_RAILS_DEVISE_SECRET_KEY="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 128 | head -n 1)"
+export FPHS_RAILS_SECRET_KEY_BASE="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 128 | head -n 1)"
 export RAILS_ENV=production
 
+# Start DB
+if [ ! -d /var/lib/pgsql/data ]; then
+  echo "Initializing the database"
+  sudo -u postgres ${PGSQLBIN}/initdb /var/lib/pgsql/data
+fi
+
+echo "Starting the database"
+sudo -u postgres ${PGSQLBIN}/pg_ctl start -D /var/lib/pgsql/data -s -o "-p 5432" -w -t 300
+sudo -u postgres psql -c 'SELECT version();'
+
 # Get source
-cd ${HOME}
+rm -rf ${BUILD_DIR}
+echo "Cloning repo"
+cd $(dirname ${BUILD_DIR})
+git clone ${REPO_URL} ${BUILD_DIR}
+
+if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
+  echo "Failed to get the repo"
+  exit 1
+fi
+
+cd ${BUILD_DIR}
 git config --global user.email ${GIT_EMAIL}
 git config --global user.name "Restructure Build Process"
-git clone ${REPO_URL} ${BUILD_DIR}
-cd ${BUILD_DIR}
 
 # Checkout branch to build
-git checkout ${BUILD_GIT_BRANCH} || git checkout -b ${BUILD_GIT_BRANCH} --track origin/${BUILD_GIT_BRANCH}
 pwd
-ls
+git checkout ${BUILD_GIT_BRANCH} || git checkout -b ${BUILD_GIT_BRANCH} --track origin/${BUILD_GIT_BRANCH}
+
 mkdir -p tmp
 chmod 774 tmp
 mkdir -p log
@@ -45,6 +63,13 @@ if [ ! -f Gemfile ]; then
   echo "No Gemfile found after checking out branch ${BUILD_GIT_BRANCH} to $(pwd)"
   exit 1
 fi
+
+if [ ! -f db/dumps/fphs_miglist.txt ] || [ ! -s db/dumps/fphs_miglist.txt ]; then
+  echo "No migration list in retrieved branch"
+  exit 1
+fi
+
+echo "Migrations: $(wc -l ${BUILD_DIR}/db/dumps/fphs_miglist.txt)"
 
 # Setup remote repos
 if [ "${PROD_REPO_URL}" ]; then
@@ -82,25 +107,29 @@ fi
 echo "localhost:5432:*:${DB_USER}:${DB_PASSWORD}" > ${HOME}/.pgpass
 chmod 600 /root/.pgpass
 
+psql --version
+
 echo "Create user ${DB_USER} and drop schema in DB ${DB_NAME}"
-sudo -u postgres psql << EOF
-CREATE USER IF NOT EXISTS ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}';
+sudo -u postgres ${PGSQLBIN}/psql 2>&1 << EOF
+SELECT version();
+
+CREATE USER ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}';
 DROP DATABASE IF EXISTS ${DB_NAME};
 CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};
 EOF
 
 echo "Run current_schema.sql"
-psql -d ${DB_NAME} -U ${DB_USER} -h localhost < db/dumps/current_schema.sql
+psql -d ${DB_NAME} -U ${DB_USER} -h localhost < db/dumps/current_schema.sql 2>&1
 
 echo "Grant privileges, setup pgcrypto and replace migration list"
-sudo -u postgres psql ${DB_NAME} << EOF
+sudo -u postgres ${PGSQLBIN}/psql ${DB_NAME} 2>&1 << EOF
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ${DB_DEFAULT_SCHEMA} TO ${DB_USER};
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA ${DB_DEFAULT_SCHEMA} TO ${DB_USER};
 GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${DB_DEFAULT_SCHEMA} TO ${DB_USER};
 GRANT ALL PRIVILEGES ON SCHEMA ${DB_DEFAULT_SCHEMA} TO ${DB_USER};
 
 CREATE EXTENSION if not exists pgcrypto;
-COPY ${DB_DEFAULT_SCHEMA}.schema_migrations (version) FROM 'db/dumps/fphs_miglist.txt'; 
+\COPY ${DB_DEFAULT_SCHEMA}.schema_migrations (version) FROM '${BUILD_DIR}/db/dumps/fphs_miglist.txt'; 
 EOF
 
 # Replace the migration list
@@ -115,6 +144,7 @@ if [ ! -f db/dumps/fphs_miglist.txt ] || [ ! -s db/dumps/fphs_miglist.txt ]; the
 fi
 
 # Upversion code
+rm -f app-scripts/.ruby_version
 TARGET_VERSION=$(ruby app-scripts/upversion.rb)
 
 if [ -z "${TARGET_VERSION}" ]; then
@@ -123,7 +153,7 @@ if [ -z "${TARGET_VERSION}" ]; then
 fi
 
 # Update CHANGELOG
-sed -i -E "s/## (Unreleased)/\1[${TARGET_VERSION}] - $(date +%Y-%m-%d)\2/" file.xml
+sed -i -E "s/## Unreleased/## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" file.xml
 
 # Commit the new version
 git commit version.txt CHANGELOG.md -m "new version created $(cat version.txt)"
@@ -147,7 +177,7 @@ echo "commit;" >> /tmp/current_schema.sql
 mv /tmp/current_schema.sql db/dumps/
 bundle exec rake db:structure:dump
 
-sudo -u postgres psql ${DB_NAME} << EOF
+sudo -u postgres ${PGSQLBIN}/psql ${DB_NAME} << EOF
 drop database if exists fpa_test;"
 EOF
 

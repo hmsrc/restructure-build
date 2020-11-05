@@ -11,11 +11,17 @@ yum update
 
 curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo
 curl --silent --location https://rpm.nodesource.com/setup_12.x | bash -
+yum -y install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+
+#sudo yum -y install epel-release centos-release-scl-rh yum-utils
+sudo yum-config-manager --enable pgdg10
+
 yum install -y git yarn \
-  postgresql-server postgresql-devel postgresql-contrib \
+  postgresql10-server postgresql10 postgresql10-devel postgresql10-contrib llvm-toolset-7-clang \
   openssl-devel readline-devel zlib-devel \
-  gcc gcc-c++ make which \
-  tar bzip2
+  gcc gcc-c++ make which mlocate \
+  tar bzip2 \
+  words
 
 # For testing
 # yum install -y firefox Xvfb x11vnc
@@ -41,5 +47,7 @@ if [ "$(rbenv local)" != "${RUBY_V}" ]; then
 fi
 
 # Setup Postgres
-sudo -u postgres initdb /var/lib/pgsql/data/
+sudo -u postgres /usr/pgsql-10/bin/initdb /var/lib/pgsql/data
 sudo -u postgres pg_ctl start -D /var/lib/pgsql/data -s -o "-p 5432" -w -t 300
+psql --version
+sudo -u postgres psql -c 'SELECT version();' 2>&1
