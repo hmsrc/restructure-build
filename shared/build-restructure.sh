@@ -236,6 +236,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
     bundle exec rake assets:clobber
     rm -rf public/assets
     rm -rf node_modules
+    rm -rf vendor/cache/*
   fi
   # Reset the remote urls for the dev repo
   git remote set-url --add origin ${REPO_URL}
