@@ -1,7 +1,7 @@
 build-vars.sh
+build_version.txt
 .pytest_cache
 .netrc
 output/*
 output/.*
 !output/.keep
-shared/build_version.txt
