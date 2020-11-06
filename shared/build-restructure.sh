@@ -12,6 +12,16 @@ BUILD_DIR=/output/restructure
 cp /shared/.netrc ${HOME}/.netrc
 chmod 600 ${HOME}/.netrc
 
+echo > /shared/build_version.txt
+
+function check_version_and_exit() {
+  IFS='.' read -a OLD_VER_ARRAY < version.txt
+  if [ -z "${OLD_VER_ARRAY[0]}" ] || [ -z "${OLD_VER_ARRAY[1]}" ] || [ -z "${OLD_VER_ARRAY[2]}" ]; then
+    echo "Current version is incorrect format: $(cat version.txt)"
+    exit 1
+  fi
+}
+
 # Setup App environment
 export FPHS_POSTGRESQL_DATABASE=${DB_NAME}
 export FPHS_POSTGRESQL_USERNAME=${DB_USER}
@@ -69,7 +79,13 @@ if [ ! -f db/dumps/fphs_miglist.txt ] || [ ! -s db/dumps/fphs_miglist.txt ]; the
   exit 1
 fi
 
-echo "Migrations: $(wc -l ${BUILD_DIR}/db/dumps/fphs_miglist.txt)"
+NUM_MIGS="$(wc -l db/dumps/fphs_miglist.txt | awk '{print $1}')"
+if [ "${NUM_MIGS}" == '0' ] || [ "${NUM_MIGS}" == '' ]; then
+  echo "No migrations in list."
+  exit 1
+fi
+
+check_version_and_exit
 
 # Setup remote repos
 if [ "${PROD_REPO_URL}" ]; then
@@ -152,8 +168,10 @@ if [ -z "${TARGET_VERSION}" ]; then
   exit 1
 fi
 
+check_version_and_exit
+
 # Update CHANGELOG
-sed -i -E "s/## Unreleased/## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" file.xml
+sed -i -E "s/## Unreleased/## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
 
 # Commit the new version
 git commit version.txt CHANGELOG.md -m "new version created $(cat version.txt)"
@@ -166,8 +184,20 @@ git add public/assets
 
 # Run static analysis tests
 bundle exec brakeman -o security/brakeman-output-${TARGET_VERSION}.md
+if [ "$?" == 0 ]; then
+  echo "Brakeman OK"
+else
+  echo "Brakeman Failed"
+  exit 1
+fi
 bundle exec bundle-audit update > security/bundle-audit-update-${TARGET_VERSION}.md
 bundle exec bundle-audit check > security/bundle-audit-output-${TARGET_VERSION}.md
+if [ "$?" == 0 ]; then
+  echo "bundle-audit OK"
+else
+  echo "bundle-audit Failed"
+  exit 1
+fi
 
 # Prep new DB dump
 rm -f db/dumps/current_schema.sql
@@ -185,6 +215,12 @@ EOF
 app-scripts/create-test-db.sh
 FPHS_ADMIN_SETUP=yes RAILS_ENV=test bundle exec rake db:seed
 RAILS_ENV=test bundle exec rspec ${RSPEC_OPTIONS}
+if [ "$?" == 0 ]; then
+  echo "rspec OK"
+else
+  echo "rspec Failed"
+  exit 1
+fi
 
 # Commit the new assets and schema
 git add .
@@ -192,4 +228,4 @@ git commit -m "Built and tested release-ready version '${TARGET_VERSION}'"
 git tag -a "${TARGET_VERSION}" -m "Push release"
 git push -f
 git push -f origin "${TARGET_VERSION}"
-echo "${TARGET_VERSION}" > /root/build_version.txt
+echo "${TARGET_VERSION}" > /shared/build_version.txt

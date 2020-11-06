@@ -4,3 +4,4 @@ build-vars.sh
 output/*
 output/.*
 !output/.keep
+shared/build_version.txt

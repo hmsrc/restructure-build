@@ -3,13 +3,15 @@
 
 cd -P -- "$(dirname -- "$0")"
 
+echo > shared/build_version.txt
+
 if [ ! -s shared/.netrc ]; then
   echo "shared/.netrc file is not set up. See README.md for more info."
   exit
 fi
 
-if [ ! -s shared/build_vars.sh ]; then
-  echo "shared/build_vars.sh file is not set up. See README.md for more info."
+if [ ! -s shared/build-vars.sh ]; then
+  echo "shared/build-vars.sh file is not set up. See README.md for more info."
   exit
 fi
 
