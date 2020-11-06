@@ -112,7 +112,7 @@ if [ ! -d vendor/bundle ]; then
   exit 1
 fi
 
-bin/yarn install
+bin/yarn install --frozen-lockfile
 
 if [ ! -d node_modules ]; then
   echo "No node_modules after yarn install"
