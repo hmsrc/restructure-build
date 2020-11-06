@@ -228,4 +228,22 @@ git commit -m "Built and tested release-ready version '${TARGET_VERSION}'"
 git tag -a "${TARGET_VERSION}" -m "Push release"
 git push -f
 git push -f origin "${TARGET_VERSION}"
+
+# If we are pushing to both prod and dev repos
+if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
+  if [ "${ONLY_PUSH_ASSETS_TO_PROD_REPO}" == 'true' ]; then
+    # Cleanup the built assets
+    bundle exec rake assets:clobber
+    rm -rf public/assets
+    rm -rf node_modules
+  fi
+  # Reset the remote urls for the dev repo
+  git remote set-url --add origin ${REPO_URL}
+  git remote set-url --push --add origin ${REPO_URL}
+  git remote set-url --delete origin ${PROD_REPO_URL}
+  git merge origin/${BUILD_GIT_BRANCH} -m "Merge remote" &&
+    git commit -a -m "Commit" &&
+    git push -f
+fi
+
 echo "${TARGET_VERSION}" > /shared/build_version.txt
