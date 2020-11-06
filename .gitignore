@@ -1,5 +1,5 @@
-build-vars.sh
-build_version.txt
+shared/build-vars.sh
+shared/build_version.txt
 .pytest_cache
 .netrc
 output/*
