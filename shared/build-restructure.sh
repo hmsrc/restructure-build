@@ -233,18 +233,23 @@ git push -f origin "${TARGET_VERSION}"
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   if [ "${ONLY_PUSH_ASSETS_TO_PROD_REPO}" == 'true' ]; then
     # Cleanup the built assets
+    echo "Only pushing assets to prod repo. Cleaning up before pushing to dev"
     bundle exec rake assets:clobber
     rm -rf public/assets
     rm -rf node_modules
     rm -rf vendor/cache/*
   fi
   # Reset the remote urls for the dev repo
+  echo "Pushing changes back to dev repo"
+  git remote set-url --delete origin ${PROD_REPO_URL}
+  git remote set-url --delete --push origin ${PROD_REPO_URL}
   git remote set-url --add origin ${REPO_URL}
   git remote set-url --push --add origin ${REPO_URL}
-  git remote set-url --delete origin ${PROD_REPO_URL}
+  git pull
   git merge origin/${BUILD_GIT_BRANCH} -m "Merge remote" &&
     git commit -a -m "Commit" &&
-    git push -f
+    git push -f &&
+    git push -f origin "${TARGET_VERSION}"
 fi
 
 echo "${TARGET_VERSION}" > /shared/build_version.txt
