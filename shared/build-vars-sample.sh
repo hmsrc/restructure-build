@@ -9,6 +9,10 @@ REPO_URL="https://github.com/somerep"
 # Only push built assets to the prod repo, cleaning them before
 # pushing to the dev repo. Ignored if ONLY_PUSH_TO_PROD_REPO=true
 ONLY_PUSH_ASSETS_TO_PROD_REPO=true
+
+# Change to 'true' to run rspec tests
+RUN_TESTS=false
+
 DB_NAME=restr_db
 DB_USER=$(whoami)
 DB_PASSWORD=root
