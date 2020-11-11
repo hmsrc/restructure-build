@@ -52,7 +52,7 @@ Ensure that `build-vars.sh` and `.netrc` are not committed to source control. Ch
 
 Build the container with:
 
-    build . -t consected/restructure-build
+    ./build.sh . -t consected/restructure-build
 
 ## Run a build
 
