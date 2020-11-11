@@ -82,17 +82,6 @@ if [ ! -f Gemfile ]; then
   exit 1
 fi
 
-if [ ! -f db/dumps/fphs_miglist.txt ] || [ ! -s db/dumps/fphs_miglist.txt ]; then
-  echo "No migration list in retrieved branch"
-  exit 1
-fi
-
-NUM_MIGS="$(wc -l db/dumps/fphs_miglist.txt | awk '{print $1}')"
-if [ "${NUM_MIGS}" == '0' ] || [ "${NUM_MIGS}" == '' ]; then
-  echo "No migrations in list."
-  exit 1
-fi
-
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   echo "Creating a copy of the prod repo for development"
   mkdir -p ${DEV_COPY}
