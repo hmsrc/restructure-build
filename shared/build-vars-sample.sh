@@ -14,6 +14,7 @@ ONLY_PUSH_ASSETS_TO_PROD_REPO=true
 RUN_TESTS=false
 
 DB_NAME=restr_db
+TEST_DB_NAME=${DB_NAME}_test
 DB_USER=$(whoami)
 DB_PASSWORD=root
 DB_DEFAULT_SCHEMA=ml_app

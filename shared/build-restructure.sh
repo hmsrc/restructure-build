@@ -3,11 +3,13 @@
 source /shared/build-vars.sh
 
 PGSQLBIN=/usr/pgsql-10/bin
+PGCLIENTENCODING=UTF8
 export HOME=/root
 export PATH=${PGSQLBIN}:$PATH
 export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
 source $HOME/.bash_profile
 BUILD_DIR=/output/restructure
+DEV_COPY=${BUILD_DIR}-dev
 
 cp /shared/.netrc ${HOME}/.netrc
 chmod 600 ${HOME}/.netrc
@@ -57,6 +59,12 @@ fi
 cd ${BUILD_DIR}
 git config --global user.email ${GIT_EMAIL}
 git config --global user.name "Restructure Build Process"
+git config --global push.default matching
+git config --global http.postBuffer 500M
+git config --global http.maxRequestBuffer 100M
+git config --global https.postBuffer 500M
+git config --global https.maxRequestBuffer 100M
+git config --global core.compression 0
 
 # Checkout branch to build
 pwd
@@ -85,16 +93,23 @@ if [ "${NUM_MIGS}" == '0' ] || [ "${NUM_MIGS}" == '' ]; then
   exit 1
 fi
 
+if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
+  echo "Creating a copy of the prod repo for development"
+  mkdir -p ${DEV_COPY}
+  rsync -av ${BUILD_DIR}/ ${DEV_COPY}/
+fi
+
 check_version_and_exit
 
-# Setup remote repos
+echo "Setup remote repos"
 if [ "${PROD_REPO_URL}" ]; then
   git remote set-url --add origin ${PROD_REPO_URL}
   git remote set-url --push --add origin ${PROD_REPO_URL}
   git remote set-url --delete origin ${REPO_URL}
+  git pull
   git merge origin/${BUILD_GIT_BRANCH} -m "Merge remote" &&
-    git commit -a -m "Commit" &&
-    git push -f
+    git commit -a -m "Commit"
+  git push -f
 fi
 
 # Bundle and Yarn
@@ -134,8 +149,8 @@ DROP DATABASE IF EXISTS ${DB_NAME};
 CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};
 EOF
 
-echo "Run current_schema.sql"
-psql -d ${DB_NAME} -U ${DB_USER} -h localhost < db/dumps/current_schema.sql 2>&1
+echo "Load structure"
+psql -d ${DB_NAME} -U ${DB_USER} -h localhost < db/structure.sql 2>&1
 
 echo "Grant privileges, setup pgcrypto and replace migration list"
 sudo -u postgres ${PGSQLBIN}/psql ${DB_NAME} 2>&1 << EOF
@@ -145,21 +160,9 @@ GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA ${DB_DEFAULT_SCHEMA} TO ${DB_USE
 GRANT ALL PRIVILEGES ON SCHEMA ${DB_DEFAULT_SCHEMA} TO ${DB_USER};
 
 CREATE EXTENSION if not exists pgcrypto;
-\COPY ${DB_DEFAULT_SCHEMA}.schema_migrations (version) FROM '${BUILD_DIR}/db/dumps/fphs_miglist.txt'; 
 EOF
 
-# Replace the migration list
-cd ${BUILD_DIR}
-bundle exec rake db:migrate
-bundle exec rake db:seed
-psql -d ${DB_NAME} -U ${DB_USER} -h localhost -c "SELECT * FROM ${DB_DEFAULT_SCHEMA}.schema_migrations ORDER BY version" | grep -oP '([0-9]{10,20})' > db/dumps/fphs_miglist.txt
-
-if [ ! -f db/dumps/fphs_miglist.txt ] || [ ! -s db/dumps/fphs_miglist.txt ]; then
-  echo "Failed to create migration list"
-  exit 1
-fi
-
-# Upversion code
+echo "Upversion code"
 rm -f app-scripts/.ruby_version
 TARGET_VERSION=$(ruby app-scripts/upversion.rb)
 
@@ -170,19 +173,21 @@ fi
 
 check_version_and_exit
 
-# Update CHANGELOG
-sed -i -E "s/## Unreleased/## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
+echo "Update CHANGELOG"
+sed -i -E "s/## Unreleased/## Unreleased\n## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
 
-# Commit the new version
+git add version.txt CHANGELOG.md
+
+echo "Commit the new version"
 git commit version.txt CHANGELOG.md -m "new version created $(cat version.txt)"
 
-# Cleanup assets
+echo "Cleanup assets"
 rm -rf public/assets
 bundle exec rake assets:clobber
 bundle exec rake assets:precompile --trace
 git add public/assets
 
-# Run static analysis tests
+echo "Run static analysis tests"
 bundle exec brakeman -o security/brakeman-output-${TARGET_VERSION}.md
 if [ "$?" == 0 ]; then
   echo "Brakeman OK"
@@ -199,7 +204,7 @@ else
   exit 1
 fi
 
-# Prep new DB dump
+echo "Prep new DB dump"
 rm -f db/dumps/current_schema.sql
 echo "begin;" > /tmp/current_schema.sql
 pg_dump -O -n ${DB_DEFAULT_SCHEMA} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
@@ -208,48 +213,96 @@ mv /tmp/current_schema.sql db/dumps/
 bundle exec rake db:structure:dump
 
 sudo -u postgres ${PGSQLBIN}/psql ${DB_NAME} << EOF
-drop database if exists fpa_test;"
+drop database if exists ${TEST_DB_NAME};
 EOF
 
-# Set and run tests
-app-scripts/create-test-db.sh
-FPHS_ADMIN_SETUP=yes RAILS_ENV=test bundle exec rake db:seed
-RAILS_ENV=test bundle exec rspec ${RSPEC_OPTIONS}
-if [ "$?" == 0 ]; then
-  echo "rspec OK"
-else
-  echo "rspec Failed"
-  exit 1
+if [ "${RUN_TESTS}" == 'true' ]; then
+  echo "Run tests"
+
+  app-scripts/create-test-db.sh
+  FPHS_ADMIN_SETUP=yes RAILS_ENV=test bundle exec rake db:seed
+  IGNORE_MFA=true RAILS_ENV=test bundle exec rspec ${RSPEC_OPTIONS}
+  if [ "$?" == 0 ]; then
+    echo "rspec OK"
+  else
+    echo "rspec Failed"
+    exit 1
+  fi
 fi
 
 # Commit the new assets and schema
-git add .
+echo "Push to: $(git config --get remote.origin.url)"
+git pull
+git add -A
 git commit -m "Built and tested release-ready version '${TARGET_VERSION}'"
 git tag -a "${TARGET_VERSION}" -m "Push release"
-git push -f
-git push -f origin "${TARGET_VERSION}"
+git push
+git push origin --tags
+git push origin --all
+
+# git push -f origin "${TARGET_VERSION}"
 
 # If we are pushing to both prod and dev repos
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
-  if [ "${ONLY_PUSH_ASSETS_TO_PROD_REPO}" == 'true' ]; then
+
+  echo "Copy files to dev directory for separate git push"
+  for f in \
+    version.txt CHANGELOG.md \
+    security/brakeman-output-${TARGET_VERSION}.md \
+    security/bundle-audit-update-${TARGET_VERSION}.md \
+    security/bundle-audit-output-${TARGET_VERSION}.md \
+    db/dumps/current_schema.sql db/structure.sql; do
+
+    cp -f ${f} ${DEV_COPY}/${f}
+
+  done
+
+  cd ${DEV_COPY}
+
+  rm -rf public/assets
+  rm -rf node_modules
+  rm -rf vendor/cache/*
+
+  if [ "${ONLY_PUSH_ASSETS_TO_PROD_REPO}" != 'true' ]; then
     # Cleanup the built assets
-    echo "Only pushing assets to prod repo. Cleaning up before pushing to dev"
-    bundle exec rake assets:clobber
-    rm -rf public/assets
-    rm -rf node_modules
-    rm -rf vendor/cache/*
+    echo "Also pushing assets to dev repo."
+    for f in public/assets node_modules vendor/cache/; do
+      mkdir -p ${DEV_COPY}/${f}
+      rsync -av ${BUILD_DIR}/${f}/ ${DEV_COPY}/${f}/
+    done
   fi
+
+  git add -A
+
   # Reset the remote urls for the dev repo
   echo "Pushing changes back to dev repo"
-  git remote set-url --delete origin ${PROD_REPO_URL}
-  git remote set-url --delete --push origin ${PROD_REPO_URL}
+
   git remote set-url --add origin ${REPO_URL}
   git remote set-url --push --add origin ${REPO_URL}
+  git remote set-url --delete origin ${PROD_REPO_URL}
+  git remote set-url --delete --push origin ${PROD_REPO_URL}
+
+  echo "Remote set to: $(git config --get remote.origin.url)"
+  echo "Final pull from dev repo"
+  git fetch origin ${BUILD_GIT_BRANCH}
   git pull
+  git add -A
+  git commit -m "Built and tested release-ready version '${TARGET_VERSION}' - dev repo"
+  git tag -a "${TARGET_VERSION}" -m "Push release"
+
+  echo "Dev repo config"
+  git config --global http.postBuffer 500M
+  git config --global http.maxRequestBuffer 100M
+  git config --global https.postBuffer 500M
+  git config --global https.maxRequestBuffer 100M
+  git config --global core.compression 0
+
   git merge origin/${BUILD_GIT_BRANCH} -m "Merge remote" &&
-    git commit -a -m "Commit" &&
-    git push -f &&
-    git push -f origin "${TARGET_VERSION}"
+    git commit -a -m "Commit"
+  echo "Final push to dev"
+  git push -f
+  git push origin --tags
+  git push origin --all
 fi
 
 echo "${TARGET_VERSION}" > /shared/build_version.txt
