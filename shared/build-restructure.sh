@@ -163,7 +163,7 @@ fi
 check_version_and_exit
 
 echo "Update CHANGELOG"
-sed -i -E "s/## Unreleased/## Unreleased\n## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
+sed -i -E "s/## Unreleased\n/## Unreleased\n\n\n## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
 
 git add version.txt CHANGELOG.md
 
