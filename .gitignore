@@ -5,3 +5,4 @@ shared/build_version.txt
 output/*
 output/.*
 !output/.keep
+*-secrets
