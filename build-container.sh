@@ -23,7 +23,7 @@ yum install -y git yarn \
   tar bzip2 \
   words
 
-# For testing
+# For UI features testing
 # yum install -y firefox Xvfb x11vnc
 
 # Install rbenv
@@ -48,6 +48,6 @@ fi
 
 # Setup Postgres
 sudo -u postgres /usr/pgsql-10/bin/initdb /var/lib/pgsql/data
-sudo -u postgres pg_ctl start -D /var/lib/pgsql/data -s -o "-p 5432" -w -t 300
+sudo -u postgres /usr/pgsql-10/bin/pg_ctl start -D /var/lib/pgsql/data -s -o "-p 5432" -w -t 300
 psql --version
 sudo -u postgres psql -c 'SELECT version();' 2>&1
