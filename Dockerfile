@@ -1,4 +1,4 @@
-FROM centos:7
+FROM amazonlinux:2
 
 LABEL maintainer=phil.ayres@consected.com
 

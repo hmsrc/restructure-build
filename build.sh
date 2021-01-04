@@ -20,7 +20,7 @@ if [ "$1" == 'clean' ]; then
 fi
 
 if [ -z "$(docker images | grep consected/restructure-build)" ]; then
-  docker build . -t consected/restructure-build
+  docker build . --volume="$(pwd)/shared:/shared" --volume="$(pwd)/output:/output" -t consected/restructure-build
 fi
 
 docker run --volume="$(pwd)/shared:/shared" --volume="$(pwd)/output:/output" consected/restructure-build

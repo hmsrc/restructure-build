@@ -14,7 +14,6 @@ curl --silent --location https://rpm.nodesource.com/setup_12.x | bash -
 yum -y install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
 
 #sudo yum -y install epel-release centos-release-scl-rh yum-utils
-sudo yum-config-manager --enable pgdg10
 
 yum install -y git yarn \
   postgresql10-server postgresql10 postgresql10-devel postgresql10-contrib llvm-toolset-7-clang \

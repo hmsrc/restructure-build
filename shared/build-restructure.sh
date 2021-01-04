@@ -108,6 +108,8 @@ which ruby
 ruby --version
 
 gem install bundler
+git --version
+git --help
 bundle install --path vendor/bundle
 bundle package --all
 
