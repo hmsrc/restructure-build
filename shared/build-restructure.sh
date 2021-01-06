@@ -237,6 +237,10 @@ git push origin --all
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
 
   echo "Copy files to dev directory for separate git push"
+
+  mkdir -p ${DEV_COPY}/security
+  mkdir -p ${DEV_COPY}/db/dumps
+
   for f in \
     version.txt CHANGELOG.md \
     security/brakeman-output-${TARGET_VERSION}.md \
@@ -248,6 +252,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
 
   done
 
+  echo "Switching to dev copy ${DEV_COPY}"
   cd ${DEV_COPY}
 
   rm -rf public/assets
@@ -263,6 +268,10 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
     done
   fi
 
+  echo "Handling git asset, db and security updates"
+  pwd
+  git init
+  git status
   git add -A
 
   # Reset the remote urls for the dev repo
