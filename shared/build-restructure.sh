@@ -184,13 +184,15 @@ else
   echo "Brakeman Failed"
   exit 1
 fi
-bundle exec bundle-audit update > security/bundle-audit-update-${TARGET_VERSION}.md
-bundle exec bundle-audit check > security/bundle-audit-output-${TARGET_VERSION}.md
-if [ "$?" == 0 ]; then
+bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
+bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
+RES=$?
+if [ "${RES}" == 0 ]; then
   echo "bundle-audit OK"
 else
-  echo "bundle-audit Failed"
-  exit 1
+  echo "bundle-audit Failed: ${RES}"
+  cat security/bundle-audit-output-${TARGET_VERSION}.md
+# exit 1
 fi
 
 echo "Prep new DB dump"
