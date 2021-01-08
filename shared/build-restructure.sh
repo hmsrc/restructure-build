@@ -237,6 +237,10 @@ git push origin --all
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
 
   echo "Copy files to dev directory for separate git push"
+
+  mkdir ${DEV_COPY}/security
+  mkdir ${DEV_COPY}/db/dumps
+
   for f in \
     version.txt CHANGELOG.md \
     security/brakeman-output-${TARGET_VERSION}.md \
