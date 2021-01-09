@@ -23,4 +23,8 @@ if [ -z "$(docker images | grep consected/restructure-build)" ]; then
   docker build . -t consected/restructure-build
 fi
 
-docker run --volume="$(pwd)/shared:/shared" --volume="$(pwd)/output:/output" consected/restructure-build
+if [ -z "$(docker images | grep consected/restructure-build)" ]; then
+  echo Container not available
+else
+  docker run --volume="$(pwd)/shared:/shared" --volume="$(pwd)/output:/output" consected/restructure-build
+fi
