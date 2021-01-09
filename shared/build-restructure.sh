@@ -161,9 +161,12 @@ if [ -z "${TARGET_VERSION}" ]; then
 fi
 
 check_version_and_exit
+echo "Target version ${TARGET_VERSION}"
 
 echo "Update CHANGELOG"
-sed -i -E "s/## Unreleased\n/## Unreleased\n\n\n## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
+
+CL_TITLE="## [${TARGET_VERSION}] - $(date +%Y-%m-%d)"
+sed -i -E "s/## Unreleased/## Unreleased\n\n\n${CL_TITLE}/" CHANGELOG.md
 
 git add version.txt CHANGELOG.md
 
