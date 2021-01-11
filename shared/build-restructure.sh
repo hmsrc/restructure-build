@@ -35,6 +35,11 @@ export FPHS_RAILS_DEVISE_SECRET_KEY="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | f
 export FPHS_RAILS_SECRET_KEY_BASE="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 128 | head -n 1)"
 export RAILS_ENV=production
 
+# Check rsync is installed
+if [ ! "$(which rsync)" ]; then
+  yum install -y rsync
+fi
+
 # Start DB
 if [ ! -d /var/lib/pgsql/data ]; then
   echo "Initializing the database"

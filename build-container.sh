@@ -6,7 +6,7 @@ source /shared/build-vars.sh
 export HOME=/root
 
 yum update -y
-yum install -y deltarpm sudo
+yum install -y deltarpm sudo rsync
 yum update
 
 curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo
