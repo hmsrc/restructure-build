@@ -35,6 +35,11 @@ export FPHS_RAILS_DEVISE_SECRET_KEY="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | f
 export FPHS_RAILS_SECRET_KEY_BASE="$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 128 | head -n 1)"
 export RAILS_ENV=production
 
+# Check rsync is installed
+if [ ! "$(which rsync)" ]; then
+  yum install -y rsync
+fi
+
 # Start DB
 if [ ! -d /var/lib/pgsql/data ]; then
   echo "Initializing the database"
@@ -85,7 +90,7 @@ fi
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   echo "Creating a copy of the prod repo for development"
   mkdir -p ${DEV_COPY}
-  rsync -av ${BUILD_DIR}/ ${DEV_COPY}/
+  rsync -av --delete ${BUILD_DIR}/ ${DEV_COPY}/
 fi
 
 check_version_and_exit
@@ -108,6 +113,8 @@ which ruby
 ruby --version
 
 gem install bundler
+git --version
+git --help
 bundle install --path vendor/bundle
 bundle package --all
 
@@ -241,8 +248,8 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
 
   echo "Copy files to dev directory for separate git push"
 
-  mkdir ${DEV_COPY}/security
-  mkdir ${DEV_COPY}/db/dumps
+  mkdir -p ${DEV_COPY}/security
+  mkdir -p ${DEV_COPY}/db/dumps
 
   for f in \
     version.txt CHANGELOG.md \
@@ -255,6 +262,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
 
   done
 
+  echo "Switching to dev copy ${DEV_COPY}"
   cd ${DEV_COPY}
 
   rm -rf public/assets
@@ -270,6 +278,10 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
     done
   fi
 
+  echo "Handling git asset, db and security updates"
+  pwd
+  git init
+  git status
   git add -A
 
   # Reset the remote urls for the dev repo

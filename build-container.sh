@@ -6,12 +6,11 @@ source /shared/build-vars.sh
 export HOME=/root
 
 yum update -y
-yum install -y deltarpm sudo
+yum install -y deltarpm sudo rsync
 yum update
 
 curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo
 curl --silent --location https://rpm.nodesource.com/setup_12.x | bash -
-
 
 yum install -y https://download.postgresql.org/pub/repos/yum/10/redhat/rhel-latest-x86_64/postgresql10-libs-10.10-1PGDG.rhel7.x86_64.rpm
 yum install -y https://download.postgresql.org/pub/repos/yum/10/redhat/rhel-latest-x86_64/postgresql10-10.10-1PGDG.rhel7.x86_64.rpm
