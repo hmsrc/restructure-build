@@ -90,7 +90,7 @@ fi
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   echo "Creating a copy of the prod repo for development"
   mkdir -p ${DEV_COPY}
-  rsync -av ${BUILD_DIR}/ ${DEV_COPY}/
+  rsync -av --delete ${BUILD_DIR}/ ${DEV_COPY}/
 fi
 
 check_version_and_exit
@@ -168,9 +168,12 @@ if [ -z "${TARGET_VERSION}" ]; then
 fi
 
 check_version_and_exit
+echo "Target version ${TARGET_VERSION}"
 
 echo "Update CHANGELOG"
-sed -i -E "s/## Unreleased\n/## Unreleased\n\n\n## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
+
+CL_TITLE="## [${TARGET_VERSION}] - $(date +%Y-%m-%d)"
+sed -i -E "s/## Unreleased/## Unreleased\n\n\n${CL_TITLE}/" CHANGELOG.md
 
 git add version.txt CHANGELOG.md
 
@@ -191,13 +194,15 @@ else
   echo "Brakeman Failed"
   exit 1
 fi
-bundle exec bundle-audit update > security/bundle-audit-update-${TARGET_VERSION}.md
-bundle exec bundle-audit check > security/bundle-audit-output-${TARGET_VERSION}.md
-if [ "$?" == 0 ]; then
+bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
+bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
+RES=$?
+if [ "${RES}" == 0 ]; then
   echo "bundle-audit OK"
 else
-  echo "bundle-audit Failed"
-  exit 1
+  echo "bundle-audit Failed: ${RES}"
+  cat security/bundle-audit-output-${TARGET_VERSION}.md
+# exit 1
 fi
 
 echo "Prep new DB dump"
