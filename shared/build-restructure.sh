@@ -3,7 +3,7 @@
 source /shared/build-vars.sh
 
 PGSQLBIN=/usr/pgsql-10/bin
-PGCLIENTENCODING=UTF8
+export PGCLIENTENCODING=UTF8
 export HOME=/root
 export PATH=${PGSQLBIN}:$PATH
 export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
@@ -52,6 +52,7 @@ sudo -u postgres psql -c 'SELECT version();'
 
 # Get source
 rm -rf ${BUILD_DIR}
+rm -rf ${DEV_COPY}
 echo "Cloning repo"
 cd $(dirname ${BUILD_DIR})
 git clone ${REPO_URL} ${BUILD_DIR}
@@ -131,6 +132,12 @@ if [ ! -d node_modules ]; then
 fi
 
 # Setup add DB
+
+if [ "$(grep '<<<< HEAD' db/structure)" ]; then
+  echo 'Merge failures are in the db structure'
+  exit 65
+fi
+
 echo "localhost:5432:*:${DB_USER}:${DB_PASSWORD}" > ${HOME}/.pgpass
 chmod 600 /root/.pgpass
 
@@ -142,7 +149,7 @@ SELECT version();
 
 CREATE USER ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}';
 DROP DATABASE IF EXISTS ${DB_NAME};
-CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};
+CREATE DATABASE ${DB_NAME} OWNER ${DB_USER} ENCODING = 'UTF8';
 EOF
 
 echo "Load structure"
@@ -184,6 +191,12 @@ echo "Cleanup assets"
 rm -rf public/assets
 bundle exec rake assets:clobber
 bundle exec rake assets:precompile --trace
+
+if [ ! -d public/assets ]; then
+  echo "Failed to precompile assets"
+  exit 3
+fi
+
 git add public/assets
 
 echo "Run static analysis tests"
@@ -208,7 +221,13 @@ fi
 echo "Prep new DB dump"
 rm -f db/dumps/current_schema.sql
 echo "begin;" > /tmp/current_schema.sql
-pg_dump -O -n ${DB_DEFAULT_SCHEMA} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
+
+DUMP_SCHEMAS_ARGS=''
+for s in ${DUMP_SCHEMAS}; do
+  DUMP_SCHEMAS_ARGS=" -n ${s} ${DUMP_SCHEMAS}"
+done
+
+pg_dump -O -n ${DUMP_SCHEMAS_ARGS} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
 echo "commit;" >> /tmp/current_schema.sql
 mv /tmp/current_schema.sql db/dumps/
 bundle exec rake db:structure:dump
