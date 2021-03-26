@@ -149,7 +149,7 @@ SELECT version();
 
 CREATE USER ${DB_USER} WITH LOGIN PASSWORD '${DB_PASSWORD}';
 DROP DATABASE IF EXISTS ${DB_NAME};
-CREATE DATABASE ${DB_NAME} OWNER ${DB_USER} ENCODING 'UTF8';
+CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};
 EOF
 
 echo "Load structure"
@@ -192,7 +192,7 @@ rm -rf public/assets
 bundle exec rake assets:clobber
 bundle exec rake assets:precompile --trace
 
-if [ ! -d public/assets ]; then
+if [ "$?" != 0 ] [ ! -d public/assets ]; then
   echo "Failed to precompile assets"
   exit 3
 fi
@@ -224,10 +224,10 @@ echo "begin;" > /tmp/current_schema.sql
 
 DUMP_SCHEMAS_ARGS=''
 for s in ${DUMP_SCHEMAS}; do
-  DUMP_SCHEMAS_ARGS=" -n ${s} ${DUMP_SCHEMAS}"
+  DUMP_SCHEMAS_ARGS=" -n ${s} "
 done
 
-pg_dump -O -n ${DUMP_SCHEMAS_ARGS} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
+pg_dump -O ${DUMP_SCHEMAS_ARGS} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
 echo "commit;" >> /tmp/current_schema.sql
 mv /tmp/current_schema.sql db/dumps/
 bundle exec rake db:structure:dump
