@@ -192,7 +192,7 @@ rm -rf public/assets
 bundle exec rake assets:clobber
 bundle exec rake assets:precompile --trace
 
-if [ "$?" != 0 ] [ ! -d public/assets ]; then
+if [ "$?" != 0 ] || [ ! -d public/assets ]; then
   echo "Failed to precompile assets"
   exit 3
 fi
@@ -215,7 +215,7 @@ if [ "${RES}" == 0 ]; then
 else
   echo "bundle-audit Failed: ${RES}"
   cat security/bundle-audit-output-${TARGET_VERSION}.md
-# exit 1
+  exit 1
 fi
 
 echo "Prep new DB dump"
