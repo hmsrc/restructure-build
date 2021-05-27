@@ -9,6 +9,7 @@ export PATH=${PGSQLBIN}:$PATH
 export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
 source $HOME/.bash_profile
 BUILD_DIR=/output/restructure
+DOCS_BUILD_DIR=${BUILD_DIR}-docs
 DEV_COPY=${BUILD_DIR}-dev
 
 cp /shared/.netrc ${HOME}/.netrc
@@ -20,6 +21,7 @@ function check_version_and_exit() {
   IFS='.' read -a OLD_VER_ARRAY < version.txt
   if [ -z "${OLD_VER_ARRAY[0]}" ] || [ -z "${OLD_VER_ARRAY[1]}" ] || [ -z "${OLD_VER_ARRAY[2]}" ]; then
     echo "Current version is incorrect format: $(cat version.txt)"
+    echo "This can often be resolved simply by re-running the build script."
     exit 1
   fi
 }
@@ -52,14 +54,21 @@ sudo -u postgres psql -c 'SELECT version();'
 
 # Get source
 rm -rf ${BUILD_DIR}
+rm -rf ${DOCS_BUILD_DIR}
 rm -rf ${DEV_COPY}
 echo "Cloning repo"
 cd $(dirname ${BUILD_DIR})
 git clone ${REPO_URL} ${BUILD_DIR}
+git clone ${DOCS_REPO_URL} ${DOCS_BUILD_DIR}
 
 if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
-  echo "Failed to get the repo"
+  echo "Failed to get the build repo"
   exit 1
+fi
+
+if [ ! -f ${DOCS_BUILD_DIR}/.git/HEAD ]; then
+  echo "Failed to get the docs repo"
+  exit 8
 fi
 
 cd ${BUILD_DIR}
@@ -107,22 +116,77 @@ if [ "${PROD_REPO_URL}" ]; then
   git push -f
 fi
 
-# Bundle and Yarn
 cd ${BUILD_DIR}
+
+# Remove the link to the docs repo then copy the full structure into the build repo
+# so that it is versioned and can be deployed
+rm -rf docs/app_reference
+mkdir -p docs/app_reference
+rsync -av --delete ${DOCS_BUILD_DIR}/app_reference docs
+git add docs
+
+rm -f db/app_configs
+rm -f db/app_migrations
+rm -f db/app_specific
+
+git add db
+
+# Bundle and Yarn
 rbenv local ${RUBY_V}
 which ruby
 ruby --version
 
+if [ "$(rbenv local)" != "${RUBY_V}" ]; then
+  rbenv install ${RUBY_V}
+  rbenv global ${RUBY_V}
+  gem install bundler
+fi
+
+rm -f .bundle/config
+
 gem install bundler
 git --version
 git --help
-bundle install --path vendor/bundle
-bundle package --all
 
-if [ ! -d vendor/bundle ]; then
-  echo "No vendor/bundle after bundle install"
+bundle remove e2mmap
+bundle remove solargraph
+
+# bundle install --path vendor/
+bundle install --system --no-deployment
+bundle package --all
+bundle cache --all
+
+# if [ ! -d vendor/bundle ]; then
+#   echo "No vendor/bundle after bundle install"
+#   exit 1
+# fi
+
+if [ ! -d vendor/cache ]; then
+  echo "No vendor/cache after bundle package"
   exit 1
 fi
+
+bundle check
+if [ "$?" != "0" ]; then
+  echo "bundle check failed"
+  exit 7
+fi
+
+# ls vendor/cache/execjs*
+# if [ "$?" != "0" ]; then
+#   echo "execjs did not get cached"
+#   exit 9
+# fi
+
+# bundle install --local --without="test:development"
+
+# if [ "$?" != "0" ]; then
+#   echo "bundle install --local check failed"
+#   exit 7
+# fi
+
+git add vendor/cache
+git add Gemfile*
 
 bin/yarn install --frozen-lockfile
 
@@ -196,6 +260,10 @@ if [ "$?" != 0 ] || [ ! -d public/assets ]; then
   echo "Failed to precompile assets"
   exit 3
 fi
+
+# Special case to allow third-party CSS in modules to reference images without requiring changes
+# to account for Rails compiling assets with random filenames.
+cp vendor/assets/images/* public/assets/
 
 git add public/assets
 

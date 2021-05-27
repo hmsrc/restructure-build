@@ -1,7 +1,7 @@
 # Build FPHS ReStructure App
 
-A Dockerfile and scripts to build [ReStructure](https://github.com/consected/ReStructure) and 
-commit it to a repository. Deployable code is made available, and the latest version 
+A Dockerfile and scripts to build [ReStructure](https://github.com/consected/ReStructure) and
+commit it to a repository. Deployable code is made available, and the latest version
 (in the source `version.txt`) will be upversioned.
 
 ## The Process
@@ -17,8 +17,16 @@ The build process performs the following
 - run [Brakeman](https://brakemanscanner.org/) tests to enforce static code analysis
 - run [bundle-audit](https://github.com/rubysec/bundler-audit) to prevent insecure gems being deployed
 - runs a subset of the rspec tests to validate the build
-- commits and pushes the built and tagged version back to the repo 
+- commits and pushes the built and tagged version back to the repo
     (and / or an alternative *production* repo if specified)
+
+# Setup the Docker image
+
+    docker image build .
+
+You may need to clear the output director to get started:
+
+    sudo rm -rf output/restructure*
 
 ## Configuration
 
@@ -34,7 +42,7 @@ specify `ONLY_PUSH_ASSETS_TO_PROD_REPO=true`. They will continue to be pushed to
 repo if it is being used.
 
 Set up a file `.netrc` to include login credentials to any private git repos (the original source
-and optionally the production repo) to allow the container to clone, pull and push your code. The file 
+and optionally the production repo) to allow the container to clone, pull and push your code. The file
 contents should look like:
 
     machine github.com login mygithubid password myplaintextpassword
@@ -60,18 +68,15 @@ Run the build process according to the settings in `shared/build-vars.sh` with:
 
     docker run --volume="$(pwd)/shared:/shared" --volume="$(pwd)/output:/output"  consected/restructure-build
 
-On a successful build, the `output` directory will contain a sub-directory `restructure` 
+On a successful build, the `output` directory will contain a sub-directory `restructure`
 containing built and deployable code. The file `shared/build_version.txt` will show the new version.
 
 ## License
 
 BSD 3-Clause License
 
-This code is property of Harvard University 
-and made available as open source under the BSD-3 license 
-(https://opensource.org/licenses/BSD-3-Clause).
+This code is property of Harvard University
+and made available as open source under the BSD-3 license
+(<https://opensource.org/licenses/BSD-3-Clause>).
 
 Copyright 2020 Harvard University
-
-
-
