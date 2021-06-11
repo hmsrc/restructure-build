@@ -20,13 +20,15 @@ The build process performs the following
 - commits and pushes the built and tagged version back to the repo
     (and / or an alternative *production* repo if specified)
 
-# Setup the Docker image
+## Setup the Docker image
 
     docker image build .
 
 You may need to clear the output director to get started:
 
     sudo rm -rf output/restructure*
+
+If you receive strange merge conflicts during build, this can also often resolve them.
 
 ## Configuration
 
