@@ -138,12 +138,17 @@ ruby --version
 
 if [ "$(rbenv local)" != "${RUBY_V}" ]; then
   rbenv install ${RUBY_V}
+  rbenv local ${RUBY_V}
   rbenv global ${RUBY_V}
   gem install bundler
 fi
 
-rm -f .bundle/config
+if [ "$(rbenv local)" != "${RUBY_V}" ]; then
+  echo "Failed to install or use ruby version ${RUBY_V}. rbenv is using $(rbenv local). The file .ruby-version is #(cat .ruby-version)"
+  exit 70
+fi
 
+rm -f .bundle/config
 gem install bundler
 git --version
 git --help
@@ -187,6 +192,7 @@ fi
 
 git add vendor/cache
 git add Gemfile*
+git add .ruby-version
 
 bin/yarn install --frozen-lockfile
 
