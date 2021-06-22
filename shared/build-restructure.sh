@@ -118,6 +118,7 @@ fi
 
 cd ${BUILD_DIR}
 
+echo "Sync app reference"
 # Remove the link to the docs repo then copy the full structure into the build repo
 # so that it is versioned and can be deployed
 rm -rf docs/app_reference
@@ -125,22 +126,21 @@ mkdir -p docs/app_reference
 rsync -av --delete ${DOCS_BUILD_DIR}/app_reference docs
 git add docs
 
+echo "Add db"
 rm -f db/app_configs
 rm -f db/app_migrations
 rm -f db/app_specific
 
 git add db
 
-# Bundle and Yarn
-rbenv local ${RUBY_V}
-which ruby
-ruby --version
+echo "Handle rbenv"
 
-if [ "$(rbenv local)" != "${RUBY_V}" ]; then
+if [ "$(rbenv local)" != "${RUBY_V}" ] || [ -z "$(ruby --version | grep ${RUBY_V})" ]; then
+  echo "Installing new ruby version ${RUBY_V}"
+  git -C /root/.rbenv/plugins/ruby-build pull
   rbenv install ${RUBY_V}
   rbenv local ${RUBY_V}
   rbenv global ${RUBY_V}
-  gem install bundler
 fi
 
 if [ "$(rbenv local)" != "${RUBY_V}" ]; then
@@ -148,6 +148,14 @@ if [ "$(rbenv local)" != "${RUBY_V}" ]; then
   exit 70
 fi
 
+rbenv local ${RUBY_V}
+rbenv global ${RUBY_V}
+echo "Using ruby version $(rbenv local)"
+which ruby
+ruby --version
+
+
+echo "Bundle"
 rm -f .bundle/config
 gem install bundler
 git --version
@@ -156,15 +164,10 @@ git --help
 bundle remove e2mmap
 bundle remove solargraph
 
-# bundle install --path vendor/
 bundle install --system --no-deployment
 bundle package --all
 bundle cache --all
 
-# if [ ! -d vendor/bundle ]; then
-#   echo "No vendor/bundle after bundle install"
-#   exit 1
-# fi
 
 if [ ! -d vendor/cache ]; then
   echo "No vendor/cache after bundle package"
@@ -177,18 +180,6 @@ if [ "$?" != "0" ]; then
   exit 7
 fi
 
-# ls vendor/cache/execjs*
-# if [ "$?" != "0" ]; then
-#   echo "execjs did not get cached"
-#   exit 9
-# fi
-
-# bundle install --local --without="test:development"
-
-# if [ "$?" != "0" ]; then
-#   echo "bundle install --local check failed"
-#   exit 7
-# fi
 
 git add vendor/cache
 git add Gemfile*
