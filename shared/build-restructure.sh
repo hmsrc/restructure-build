@@ -66,6 +66,11 @@ if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
   exit 1
 fi
 
+if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
+  echo "Ruby versions don't match: $(cat ${BUILD_DIR}/.ruby-version) != ${RUBY_V}"
+  exit 7
+fi
+
 if [ ! -f ${DOCS_BUILD_DIR}/.git/HEAD ]; then
   echo "Failed to get the docs repo"
   exit 8
