@@ -3,12 +3,13 @@
 source /shared/build-vars.sh
 
 PGSQLBIN=/usr/pgsql-10/bin
-PGCLIENTENCODING=UTF8
+export PGCLIENTENCODING=UTF8
 export HOME=/root
 export PATH=${PGSQLBIN}:$PATH
 export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
 source $HOME/.bash_profile
 BUILD_DIR=/output/restructure
+DOCS_BUILD_DIR=${BUILD_DIR}-docs
 DEV_COPY=${BUILD_DIR}-dev
 
 cp /shared/.netrc ${HOME}/.netrc
@@ -20,6 +21,7 @@ function check_version_and_exit() {
   IFS='.' read -a OLD_VER_ARRAY < version.txt
   if [ -z "${OLD_VER_ARRAY[0]}" ] || [ -z "${OLD_VER_ARRAY[1]}" ] || [ -z "${OLD_VER_ARRAY[2]}" ]; then
     echo "Current version is incorrect format: $(cat version.txt)"
+    echo "This can often be resolved simply by re-running the build script."
     exit 1
   fi
 }
@@ -52,13 +54,26 @@ sudo -u postgres psql -c 'SELECT version();'
 
 # Get source
 rm -rf ${BUILD_DIR}
+rm -rf ${DOCS_BUILD_DIR}
+rm -rf ${DEV_COPY}
 echo "Cloning repo"
 cd $(dirname ${BUILD_DIR})
 git clone ${REPO_URL} ${BUILD_DIR}
+git clone ${DOCS_REPO_URL} ${DOCS_BUILD_DIR}
 
 if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
-  echo "Failed to get the repo"
+  echo "Failed to get the build repo"
   exit 1
+fi
+
+if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
+  echo "Ruby versions don't match: $(cat ${BUILD_DIR}/.ruby-version) != ${RUBY_V}"
+  exit 7
+fi
+
+if [ ! -f ${DOCS_BUILD_DIR}/.git/HEAD ]; then
+  echo "Failed to get the docs repo"
+  exit 8
 fi
 
 cd ${BUILD_DIR}
@@ -90,7 +105,7 @@ fi
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   echo "Creating a copy of the prod repo for development"
   mkdir -p ${DEV_COPY}
-  rsync -av ${BUILD_DIR}/ ${DEV_COPY}/
+  rsync -av --delete ${BUILD_DIR}/ ${DEV_COPY}/
 fi
 
 check_version_and_exit
@@ -106,22 +121,74 @@ if [ "${PROD_REPO_URL}" ]; then
   git push -f
 fi
 
-# Bundle and Yarn
 cd ${BUILD_DIR}
+
+echo "Sync app reference"
+# Remove the link to the docs repo then copy the full structure into the build repo
+# so that it is versioned and can be deployed
+rm -rf docs/app_reference
+mkdir -p docs/app_reference
+rsync -av --delete ${DOCS_BUILD_DIR}/app_reference docs
+git add docs
+
+echo "Add db"
+rm -f db/app_configs
+rm -f db/app_migrations
+rm -f db/app_specific
+
+git add db
+
+echo "Handle rbenv"
+
+if [ "$(rbenv local)" != "${RUBY_V}" ] || [ -z "$(ruby --version | grep ${RUBY_V})" ]; then
+  echo "Installing new ruby version ${RUBY_V}"
+  git -C /root/.rbenv/plugins/ruby-build pull
+  rbenv install ${RUBY_V}
+  rbenv local ${RUBY_V}
+  rbenv global ${RUBY_V}
+fi
+
+if [ "$(rbenv local)" != "${RUBY_V}" ]; then
+  echo "Failed to install or use ruby version ${RUBY_V}. rbenv is using $(rbenv local). The file .ruby-version is #(cat .ruby-version)"
+  exit 70
+fi
+
 rbenv local ${RUBY_V}
+rbenv global ${RUBY_V}
+echo "Using ruby version $(rbenv local)"
 which ruby
 ruby --version
 
+
+echo "Bundle"
+rm -f .bundle/config
 gem install bundler
 git --version
 git --help
-bundle install --path vendor/bundle
-bundle package --all
 
-if [ ! -d vendor/bundle ]; then
-  echo "No vendor/bundle after bundle install"
+bundle remove e2mmap
+bundle remove solargraph
+
+bundle install --system --no-deployment
+bundle package --all
+bundle cache --all
+
+
+if [ ! -d vendor/cache ]; then
+  echo "No vendor/cache after bundle package"
   exit 1
 fi
+
+bundle check
+if [ "$?" != "0" ]; then
+  echo "bundle check failed"
+  exit 7
+fi
+
+
+git add vendor/cache
+git add Gemfile*
+git add .ruby-version
 
 bin/yarn install --frozen-lockfile
 
@@ -131,6 +198,12 @@ if [ ! -d node_modules ]; then
 fi
 
 # Setup add DB
+
+if [ "$(grep '<<<< HEAD' db/structure)" ]; then
+  echo 'Merge failures are in the db structure'
+  exit 65
+fi
+
 echo "localhost:5432:*:${DB_USER}:${DB_PASSWORD}" > ${HOME}/.pgpass
 chmod 600 /root/.pgpass
 
@@ -168,9 +241,12 @@ if [ -z "${TARGET_VERSION}" ]; then
 fi
 
 check_version_and_exit
+echo "Target version ${TARGET_VERSION}"
 
 echo "Update CHANGELOG"
-sed -i -E "s/## Unreleased\n/## Unreleased\n\n\n## [${TARGET_VERSION}] - $(date +%Y-%m-%d)/" CHANGELOG.md
+
+CL_TITLE="## [${TARGET_VERSION}] - $(date +%Y-%m-%d)"
+sed -i -E "s/## Unreleased/## Unreleased\n\n\n${CL_TITLE}/" CHANGELOG.md
 
 git add version.txt CHANGELOG.md
 
@@ -181,6 +257,16 @@ echo "Cleanup assets"
 rm -rf public/assets
 bundle exec rake assets:clobber
 bundle exec rake assets:precompile --trace
+
+if [ "$?" != 0 ] || [ ! -d public/assets ]; then
+  echo "Failed to precompile assets"
+  exit 3
+fi
+
+# Special case to allow third-party CSS in modules to reference images without requiring changes
+# to account for Rails compiling assets with random filenames.
+cp vendor/assets/images/* public/assets/
+
 git add public/assets
 
 echo "Run static analysis tests"
@@ -191,19 +277,27 @@ else
   echo "Brakeman Failed"
   exit 1
 fi
-bundle exec bundle-audit update > security/bundle-audit-update-${TARGET_VERSION}.md
-bundle exec bundle-audit check > security/bundle-audit-output-${TARGET_VERSION}.md
-if [ "$?" == 0 ]; then
+bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
+bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
+RES=$?
+if [ "${RES}" == 0 ]; then
   echo "bundle-audit OK"
 else
-  echo "bundle-audit Failed"
+  echo "bundle-audit Failed: ${RES}"
+  cat security/bundle-audit-output-${TARGET_VERSION}.md
   exit 1
 fi
 
 echo "Prep new DB dump"
 rm -f db/dumps/current_schema.sql
 echo "begin;" > /tmp/current_schema.sql
-pg_dump -O -n ${DB_DEFAULT_SCHEMA} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
+
+DUMP_SCHEMAS_ARGS=''
+for s in ${DUMP_SCHEMAS}; do
+  DUMP_SCHEMAS_ARGS=" -n ${s} "
+done
+
+pg_dump -O ${DUMP_SCHEMAS_ARGS} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
 echo "commit;" >> /tmp/current_schema.sql
 mv /tmp/current_schema.sql db/dumps/
 bundle exec rake db:structure:dump
