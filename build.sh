@@ -17,6 +17,7 @@ fi
 
 if [ "$1" == 'clean' ]; then
   docker image rm consected/restructure-build --force
+  sleep 5
 fi
 
 if [ -z "$(docker images | grep consected/restructure-build)" ]; then
