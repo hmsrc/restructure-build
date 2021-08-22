@@ -215,6 +215,8 @@ if [ ! -f "$OPTIONSDIR/$ENVTYPE-env.vars" ]; then
   exit
 fi
 
+echo "Load common variables from $OPTIONSDIR/$ENVTYPE-env.vars"
+source $OPTIONSDIR/common-env.vars
 source $OPTIONSDIR/$ENVTYPE-env.vars
 
 if [ "$SKIP_MIGRATIONS" == 'true' ]; then
@@ -259,14 +261,32 @@ echo ""
 echo "========================================="
 echo Making ebextensions configurations
 mkdir -p $APPDIR/.ebextensions
+mkdir -p $APPDIR/.platform
 
 echo Cleaning up old config files
 rm $APPDIR/.ebextensions/*.config
 rm $APPDIR/passenger-standalone.json
+rm -rf $APPDIR/.platform/*
 
 echo Configuring ebextensions
 cp $OPTIONSDIR/ebextensions/*.config $APPDIR/.ebextensions/
 cp $OPTIONSDIR/ebextensions/${ENVTYPE}/*.config $APPDIR/.ebextensions/
+
+echo Configuring platform files
+if [ -d "$OPTIONSDIR/platform/common" ]; then
+  cp --recursive $OPTIONSDIR/platform/common/* $APPDIR/.platform/
+fi
+
+if [ -d "$OPTIONSDIR/platform/${ENVTYPE}" ]; then
+  cp --recursive $OPTIONSDIR/platform/${ENVTYPE}/* $APPDIR/.platform/
+fi
+
+find $APPDIR/.platform -type f -exec chmod 774 {} \;
+
+cat > $APPDIR/Procfile << EOF
+web: puma -C /opt/elasticbeanstalk/config/private/pumaconf.rb
+delayed_job: cd /var/app/current; RAILS_ENV=production bundle exec bin/delayed_job -n $NUM_WORKERS run
+EOF
 
 if [ "$NO_CERTIFICATE" != 'true' ]; then
   echo ""
@@ -310,6 +330,7 @@ if [ "$ENVTYPE" != 'migrate' ]; then
     echo "setup   to create the environment"
     echo "env     to reset environment variables then exit"
     echo "deploy  to deploy to the existing environment."
+    echo "upgrade to upgrade the platform version (rebuilds instances). It is best to deploy the lastest version before this."
     read SETUPAPP
   done
 else
@@ -324,6 +345,12 @@ else
     read MIG_PATH
   fi
 
+fi
+
+if [ "$SETUPAPP" == 'upgrade' ]; then
+  eb use $EBENV
+  eb upgrade
+  exit
 fi
 
 if [ "$SETUPAPP" == 'env' ]; then
@@ -354,7 +381,7 @@ if [ "$SETUPAPP" == 'setup' ] || [ "$ENVTYPE" == 'migrate' ]; then
     -p "$EB_PLATFORM" \
     -k "$EB_KEYNAME" \
     --envvars \
-    SECRET_KEY_BASE="$SECRET_KEY_BASE",FPHS_RAILS_SECRET_KEY_BASE="$SECRET_KEY_BASE",FPHS_RAILS_DEVISE_SECRET_KEY="$DEVISE_SECRET_KEY_BASE",RAILS_ENV=production,RAILS_SERVE_STATIC_FILES="$RAILS_SERVE_STATIC_FILES",RAILS_SKIP_ASSET_COMPILATION=true,FPHS_ENV_NAME="$FPHS_ENV_NAME",FPHS_POSTGRESQL_HOSTNAME="$DB_HOST",FPHS_POSTGRESQL_USERNAME="$DB_USERNAME",FPHS_POSTGRESQL_PASSWORD="$DB_PASSWORD",FPHS_POSTGRESQL_DATABASE="$DB_NAME",FPHS_POSTGRESQL_PORT="$DB_PORT",RDS_SCHEMA="$TEMP_DB_SEARCH_PATH",FPHS_POSTGRESQL_SCHEMA="$TEMP_DB_SEARCH_PATH",RAILS_SKIP_MIGRATIONS="$SKIP_MIGRATIONS",SMTP_SERVER="$SMTP_SERVER",SMTP_PORT=465,SMTP_USER_NAME="$SMTP_USER_NAME",SMTP_PASSWORD="$SMTP_PASSWORD",FPHS_FROM_EMAIL="$FROM_EMAIL",FILESTORE_CONTAINERS_DIRNAME=containers,FILESTORE_NFS_DIR=/mnt/fphsfs,FILESTORE_TEMP_UPLOADS_DIR=/tmp/uploads,FILESTORE_USE_PARENT_SUB_DIR="$FILESTORE_USE_PARENT_SUB_DIR",FPHS_X_SENDFILE_HEADER="X-Accel-Redirect",BASE_URL="$BASE_URL",SMS_SENDER_ID="$SMS_SENDER_ID",FPHS_LOAD_APP_TYPES=1,MIG_PATH="$MIG_PATH"
+    SECRET_KEY_BASE="$SECRET_KEY_BASE",FPHS_RAILS_SECRET_KEY_BASE="$SECRET_KEY_BASE",FPHS_RAILS_DEVISE_SECRET_KEY="$DEVISE_SECRET_KEY_BASE",RAILS_ENV=production,RAILS_SERVE_STATIC_FILES="$RAILS_SERVE_STATIC_FILES",RAILS_SKIP_ASSET_COMPILATION=true,FPHS_ENV_NAME="$FPHS_ENV_NAME",FPHS_POSTGRESQL_HOSTNAME="$DB_HOST",FPHS_POSTGRESQL_USERNAME="$DB_USERNAME",FPHS_POSTGRESQL_PASSWORD="$DB_PASSWORD",FPHS_POSTGRESQL_DATABASE="$DB_NAME",FPHS_POSTGRESQL_PORT="$DB_PORT",RDS_SCHEMA="$TEMP_DB_SEARCH_PATH",FPHS_POSTGRESQL_SCHEMA="$TEMP_DB_SEARCH_PATH",RAILS_SKIP_MIGRATIONS="$SKIP_MIGRATIONS",SMTP_SERVER="$SMTP_SERVER",SMTP_PORT=465,SMTP_USER_NAME="$SMTP_USER_NAME",SMTP_PASSWORD="$SMTP_PASSWORD",FPHS_FROM_EMAIL="$FROM_EMAIL",FILESTORE_CONTAINERS_DIRNAME=containers,FILESTORE_NFS_DIR=/mnt/fphsfs,FILESTORE_TEMP_UPLOADS_DIR=/tmp/uploads,FILESTORE_USE_PARENT_SUB_DIR="$FILESTORE_USE_PARENT_SUB_DIR",FPHS_X_SENDFILE_HEADER="X-Accel-Redirect",BASE_URL="$BASE_URL",SMS_SENDER_ID="$SMS_SENDER_ID",FPHS_LOAD_APP_TYPES=1,MIG_PATH="$MIG_PATH",NUM_WORKERS="${NUM_WORKERS}",RAILS_MAX_THREADS="${RAILS_MAX_THREADS}"
 
   eb use $EBENV
 
@@ -466,7 +493,9 @@ if [ -z "$RDS_HOST" ]; then
     LOGIN_ISSUES_URL="$LOGIN_ISSUES_URL" \
     LOGIN_MESSAGE="$LOGIN_MESSAGE" \
     MIG_PATH="$MIG_PATH" \
-    FPHS_ADMIN_EMAIL=${ADMIN_EMAIL}
+    FPHS_ADMIN_EMAIL=${ADMIN_EMAIL} \
+    NUM_WORKERS="${NUM_WORKERS}" \
+    RAILS_MAX_THREADS="${RAILS_MAX_THREADS}"
 
 fi
 
@@ -483,6 +512,10 @@ git -c advice.detachedHead=false add $APPDIR/passenger-standalone.json
 git -c advice.detachedHead=false commit $APPDIR/passenger-standalone.json -m "Add passenger standalone config"
 git -c advice.detachedHead=false add $APPDIR/.ebextensions
 git -c advice.detachedHead=false commit $APPDIR/.ebextensions -m "Add ebextensions"
+git -c advice.detachedHead=false add $APPDIR/.platform
+git -c advice.detachedHead=false commit $APPDIR/.platform -m "Add platform"
+git -c advice.detachedHead=false add $APPDIR/Procfile
+git -c advice.detachedHead=false commit $APPDIR/Procfile -m "Add Procfile"
 
 echo ""
 echo "========================================="
