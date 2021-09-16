@@ -66,10 +66,22 @@ if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
   exit 1
 fi
 
+cd ${BUILD_DIR}
+rbenv local ${RUBY_V}
+rbenv global ${RUBY_V}
+
+if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
+  rbenv install ${RUBY_V}
+  rbenv local ${RUBY_V}
+  rbenv global ${RUBY_V}
+fi
+
 if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
   echo "Ruby versions don't match: $(cat ${BUILD_DIR}/.ruby-version) != ${RUBY_V}"
   exit 7
 fi
+
+git stash save
 
 if [ ! -f ${DOCS_BUILD_DIR}/.git/HEAD ]; then
   echo "Failed to get the docs repo"
