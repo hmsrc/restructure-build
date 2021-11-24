@@ -171,7 +171,6 @@ echo "Using ruby version $(rbenv local)"
 which ruby
 ruby --version
 
-
 echo "Bundle"
 rm -f .bundle/config
 gem install bundler
@@ -185,7 +184,6 @@ bundle install --system --no-deployment
 bundle package --all
 bundle cache --all
 
-
 if [ ! -d vendor/cache ]; then
   echo "No vendor/cache after bundle package"
   exit 1
@@ -196,7 +194,6 @@ if [ "$?" != "0" ]; then
   echo "bundle check failed"
   exit 7
 fi
-
 
 git add vendor/cache
 git add Gemfile*
@@ -306,7 +303,7 @@ echo "begin;" > /tmp/current_schema.sql
 
 DUMP_SCHEMAS_ARGS=''
 for s in ${DUMP_SCHEMAS}; do
-  DUMP_SCHEMAS_ARGS=" -n ${s} "
+  DUMP_SCHEMAS_ARGS="${DUMP_SCHEMAS_ARGS} -n ${s} "
 done
 
 pg_dump -O ${DUMP_SCHEMAS_ARGS} -d ${DB_NAME} -s -x >> /tmp/current_schema.sql
