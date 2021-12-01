@@ -117,7 +117,7 @@ fi
 if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   echo "Creating a copy of the prod repo for development"
   mkdir -p ${DEV_COPY}
-  rsync -av --delete ${BUILD_DIR}/ ${DEV_COPY}/
+  rsync -a --delete ${BUILD_DIR}/ ${DEV_COPY}/
 fi
 
 check_version_and_exit
@@ -331,10 +331,10 @@ fi
 
 # Commit the new assets and schema
 echo "Push to: $(git config --get remote.origin.url)"
-git pull
 git add -A
 git commit -m "Built and tested release-ready version '${TARGET_VERSION}'"
 git tag -a "${TARGET_VERSION}" -m "Push release"
+git pull -s recursive -X theirs --no-ff
 git push
 git push origin --tags
 git push origin --all
@@ -379,9 +379,9 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   echo "Handling git asset, db and security updates"
   pwd
   git init
-  git status
   git add -A
-
+  git status
+  
   # Reset the remote urls for the dev repo
   echo "Pushing changes back to dev repo"
 

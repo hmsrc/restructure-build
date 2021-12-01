@@ -2,7 +2,7 @@
 RUBY_V=2.7.4
 GIT_EMAIL=phil_ayres@hms.harvard.edu
 BUILD_GIT_BRANCH=new-master
-REPO_URL="https://open.med.harvard.edu/stash/scm/fphsapps/fphs-rails.git"
+REPO_URL="https://open.catalyst.harvard.edu/stash/scm/fphsapps/fphs-rails.git/"
 PROD_REPO_URL="https://github.com/hmsrc/fphs-rails-app.git"
 DOCS_REPO_URL="https://github.com/hmsrc/fphs-app-docs.git"
 
