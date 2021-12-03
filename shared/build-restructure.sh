@@ -252,11 +252,6 @@ fi
 check_version_and_exit
 echo "Target version ${TARGET_VERSION}"
 
-echo "Update CHANGELOG"
-
-CL_TITLE="## [${TARGET_VERSION}] - $(date +%Y-%m-%d)"
-sed -i -E "s/## Unreleased/## Unreleased\n\n\n${CL_TITLE}/" CHANGELOG.md
-
 git add version.txt CHANGELOG.md
 
 echo "Commit the new version"
@@ -330,11 +325,19 @@ if [ "${RUN_TESTS}" == 'true' ]; then
 fi
 
 # Commit the new assets and schema
-echo "Push to: $(git config --get remote.origin.url)"
+echo "Pull from: $(git config --get remote.origin.url)"
+git pull
+
+echo "Update CHANGELOG"
+CL_TITLE="## [${TARGET_VERSION}] - $(date +%Y-%m-%d)"
+sed -i -E "s/## Unreleased/${CL_TITLE}/" CHANGELOG.md
+
+echo "Add final changes, commit and tag"
 git add -A
 git commit -m "Built and tested release-ready version '${TARGET_VERSION}'"
 git tag -a "${TARGET_VERSION}" -m "Push release"
-git pull -s recursive -X theirs --no-ff
+
+echo "Push to: $(git config --get remote.origin.url)"
 git push
 git push origin --tags
 git push origin --all
@@ -381,7 +384,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   git init
   git add -A
   git status
-  
+
   # Reset the remote urls for the dev repo
   echo "Pushing changes back to dev repo"
 
