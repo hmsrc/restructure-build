@@ -101,6 +101,7 @@ git config --global core.compression 0
 # Checkout branch to build
 pwd
 git checkout ${BUILD_GIT_BRANCH} || git checkout -b ${BUILD_GIT_BRANCH} --track origin/${BUILD_GIT_BRANCH}
+git pull
 
 mkdir -p tmp
 chmod 774 tmp
@@ -130,6 +131,12 @@ if [ "${PROD_REPO_URL}" ]; then
   git pull
   git merge origin/${BUILD_GIT_BRANCH} -X ours -m "Merge remote" && git commit -a -m "Commit"
   git push -f
+
+  if [ $? != 0 ]; then
+    echo "Failed to push to remotes. Will not continue."
+    exit 45
+  fi
+
 fi
 
 cd ${BUILD_DIR}
@@ -251,8 +258,8 @@ fi
 check_version_and_exit
 echo "Target version ${TARGET_VERSION}"
 
+echo "Update CHANGELOG"
 CL_TITLE="## [${TARGET_VERSION}] - $(date +%Y-%m-%d)"
-echo "Update CHANGELOG with title: ${CL_TITLE}"
 sed -i -E "s/## Unreleased/${CL_TITLE}/" CHANGELOG.md
 
 git add version.txt CHANGELOG.md
