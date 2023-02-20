@@ -21,3 +21,5 @@ DB_PASSWORD=root
 DB_DEFAULT_SCHEMA=ml_app
 APP_DB_SEARCH_PATH=ml_app
 RSPEC_OPTIONS='--exclude-pattern "**/features/**/*_spec.rb"'
+# Skip bundle-audit analysis of gems
+# SKIP_BUNDLE_AUDIT=true

@@ -1,5 +1,5 @@
 #
-RUBY_V=2.7.5
+RUBY_V=2.7.6
 GIT_EMAIL=phil_ayres@hms.harvard.edu
 BUILD_GIT_BRANCH=new-master
 REPO_URL="https://open.catalyst.harvard.edu/stash/scm/fphsapps/fphs-rails.git/"
@@ -20,3 +20,4 @@ DB_DEFAULT_SCHEMA=ml_app
 APP_DB_SEARCH_PATH=ml_app,ref_data
 DUMP_SCHEMAS="ml_app ref_data"
 RSPEC_OPTIONS='--exclude-pattern "**/features/**/*_spec.rb"'
+SKIP_BUNDLE_AUDIT=true

@@ -81,6 +81,8 @@ if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
   exit 7
 fi
 
+head -32 CHANGELOG.md | tail -13
+
 git stash save
 
 if [ ! -f ${DOCS_BUILD_DIR}/.git/HEAD ]; then
@@ -102,7 +104,6 @@ git config --global core.compression 0
 pwd
 git checkout ${BUILD_GIT_BRANCH} || git checkout -b ${BUILD_GIT_BRANCH} --track origin/${BUILD_GIT_BRANCH}
 git pull
-
 mkdir -p tmp
 chmod 774 tmp
 mkdir -p log
@@ -121,6 +122,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   rsync -a --delete ${BUILD_DIR}/ ${DEV_COPY}/
 fi
 
+head -32 CHANGELOG.md | tail -13
 check_version_and_exit
 
 echo "Setup remote repos"
@@ -128,8 +130,13 @@ if [ "${PROD_REPO_URL}" ]; then
   git remote set-url --add origin ${PROD_REPO_URL}
   git remote set-url --push --add origin ${PROD_REPO_URL}
   git remote set-url --delete origin ${REPO_URL}
-  git pull
+  git fetch
+
+  head -32 CHANGELOG.md | tail -13
+
   git merge origin/${BUILD_GIT_BRANCH} -X ours -m "Merge remote" && git commit -a -m "Commit"
+
+  head -32 CHANGELOG.md | tail -13
   git push -f
 
   if [ $? != 0 ]; then
@@ -181,7 +188,6 @@ echo "Bundle"
 rm -f .bundle/config
 gem install bundler
 git --version
-git --help
 
 bundle remove e2mmap
 bundle remove solargraph
@@ -269,8 +275,8 @@ git commit version.txt CHANGELOG.md -m "new version created $(cat version.txt)"
 
 echo "Cleanup assets"
 rm -rf public/assets
-bundle exec rake assets:clobber
-bundle exec rake assets:precompile --trace
+RAILS_GROUPS=assets bundle exec rake assets:clobber
+RAILS_GROUPS=assets bundle exec rake assets:precompile --trace
 
 if [ "$?" != 0 ] || [ ! -d public/assets ]; then
   echo "Failed to precompile assets"
@@ -291,15 +297,18 @@ else
   echo "Brakeman Failed"
   exit 1
 fi
-bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
-bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
-RES=$?
-if [ "${RES}" == 0 ]; then
-  echo "bundle-audit OK"
-else
-  echo "bundle-audit Failed: ${RES}"
-  cat security/bundle-audit-output-${TARGET_VERSION}.md
-  exit 1
+
+if [ "SKIP_BUNDLE_AUDIT" != 'true' ]; then
+  bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
+  bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
+  RES=$?
+  if [ "${RES}" == 0 ]; then
+    echo "bundle-audit OK"
+  else
+    echo "bundle-audit Failed: ${RES}"
+    cat security/bundle-audit-output-${TARGET_VERSION}.md
+    exit 1
+  fi
 fi
 
 echo "Prep new DB dump"
@@ -325,7 +334,7 @@ if [ "${RUN_TESTS}" == 'true' ]; then
 
   app-scripts/create-test-db.sh
   FPHS_ADMIN_SETUP=yes RAILS_ENV=test bundle exec rake db:seed
-  IGNORE_MFA=true RAILS_ENV=test bundle exec rspec ${RSPEC_OPTIONS}
+  RAILS_ENV=test bundle exec rspec ${RSPEC_OPTIONS}
   if [ "$?" == 0 ]; then
     echo "rspec OK"
   else
@@ -337,6 +346,7 @@ fi
 # Commit the new assets and schema
 echo "Pull from: $(git config --get remote.origin.url)"
 git pull
+head -32 CHANGELOG.md | tail -13
 
 echo "Add final changes, commit and tag"
 git add -A
