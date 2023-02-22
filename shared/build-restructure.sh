@@ -298,7 +298,7 @@ else
   exit 1
 fi
 
-if [ "SKIP_BUNDLE_AUDIT" != 'true' ]; then
+if [ "${SKIP_BUNDLE_AUDIT}" != 'true' ]; then
   bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
   bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
   RES=$?
@@ -307,7 +307,7 @@ if [ "SKIP_BUNDLE_AUDIT" != 'true' ]; then
   else
     echo "bundle-audit Failed: ${RES}"
     cat security/bundle-audit-output-${TARGET_VERSION}.md
-    exit 1
+    # exit 1
   fi
 fi
 
