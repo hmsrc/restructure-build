@@ -290,12 +290,14 @@ cp vendor/assets/images/* public/assets/
 git add public/assets
 
 echo "Run static analysis tests"
-bundle exec brakeman -o security/brakeman-output-${TARGET_VERSION}.md
-if [ "$?" == 0 ]; then
-  echo "Brakeman OK"
-else
-  echo "Brakeman Failed"
-  exit 1
+if [ "${SKIP_BRAKEMAN}" != 'true' ]; then
+  bundle exec brakeman -o security/brakeman-output-${TARGET_VERSION}.md
+  if [ "$?" == 0 ]; then
+    echo "Brakeman OK"
+  else
+    echo "Brakeman Failed"
+    exit 1
+  fi
 fi
 
 if [ "${SKIP_BUNDLE_AUDIT}" != 'true' ]; then
