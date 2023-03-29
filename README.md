@@ -1,4 +1,4 @@
-# Build FPHS ReStructure App
+# Build ReStructure
 
 A Dockerfile and scripts to build [ReStructure](https://github.com/consected/restructure) and
 commit it to a repository. Deployable code is made available, and the latest version
@@ -30,6 +30,12 @@ You may need to clear the output director to get started:
 
 If you receive strange merge conflicts during build, this can also often resolve them.
 
+If you get an error that yum can't find a repository due to no space, you may need to clean up docker. This will
+clean everything!
+
+    docker system prune -a
+    docker volume rm $(docker volume ls -f dangling=true -q)
+
 ## Configuration
 
 Copy `build-vars-sample.sh` to `build-vars.sh` and edit it with your details.
@@ -56,7 +62,7 @@ Protect the plaintext file with:
 
 If you use `.netrc` for your git authentication anyway, then a symlink will suffice:
 
-    ln -s ~/.netrc ./.netrc
+    ln -s ~/.netrc ./shared/.netrc
 
 Ensure that `build-vars.sh` and `.netrc` are not committed to source control. Check the `.gitignore` file.
 
@@ -68,7 +74,7 @@ Build the container with:
 
 Run the build process according to the settings in `shared/build-vars.sh` with:
 
-    docker run --volume="$(pwd)/shared:/shared" --volume="$(pwd)/output:/output"  consected/restructure-build
+    ./build.sh
 
 On a successful build, the `output` directory will contain a sub-directory `restructure`
 containing built and deployable code. The file `shared/build_version.txt` will show the new version.
@@ -79,6 +85,6 @@ BSD 3-Clause License
 
 This code is property of Harvard University
 and made available as open source under the BSD-3 license
-(https://opensource.org/licenses/BSD-3-Clause).
+(<https://opensource.org/licenses/BSD-3-Clause>).
 
 Copyright 2020 Harvard University
