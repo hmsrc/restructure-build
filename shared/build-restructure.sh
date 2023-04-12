@@ -327,7 +327,7 @@ echo "commit;" >> /tmp/current_schema.sql
 mv /tmp/current_schema.sql db/dumps/
 bundle exec rake db:structure:dump
 
-RAILS_ENV=test bundle exec rails zeitwerk:check
+bundle exec rails zeitwerk:check
 if [ $? != 0 ]; then
   echo "Zeitwerk test failed"
   exit 7
