@@ -1,5 +1,5 @@
 #
-RUBY_V=2.7.7
+RUBY_V=3.0.6
 GIT_EMAIL=phil_ayres@hms.harvard.edu
 BUILD_GIT_BRANCH=new-master
 REPO_URL="https://open.catalyst.harvard.edu/stash/scm/fphsapps/fphs-rails.git/"

@@ -287,7 +287,7 @@ fi
 # to account for Rails compiling assets with random filenames.
 cp vendor/assets/images/* public/assets/
 
-git add public/assets
+git add --force public/assets
 
 echo "Run static analysis tests"
 if [ "${SKIP_BRAKEMAN}" != 'true' ]; then
@@ -330,6 +330,12 @@ bundle exec rake db:structure:dump
 sudo -u postgres ${PGSQLBIN}/psql ${DB_NAME} << EOF
 drop database if exists ${TEST_DB_NAME};
 EOF
+
+bundle exec rails zeitwerk:check
+if [ $? != 0 ]; then
+  echo "Zeitwerk test failed"
+  exit 7
+fi
 
 if [ "${RUN_TESTS}" == 'true' ]; then
   echo "Run tests"
