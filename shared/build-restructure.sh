@@ -291,7 +291,7 @@ git add --force public/assets
 
 echo "Run static analysis tests"
 if [ "${SKIP_BRAKEMAN}" != 'true' ]; then
-  bundle exec brakeman -o security/brakeman-output-${TARGET_VERSION}.md
+  bundle exec brakeman -o security/brakeman-output.md
   if [ "$?" == 0 ]; then
     echo "Brakeman OK"
   else
@@ -301,14 +301,14 @@ if [ "${SKIP_BRAKEMAN}" != 'true' ]; then
 fi
 
 if [ "${SKIP_BUNDLE_AUDIT}" != 'true' ]; then
-  bundle exec bundle-audit update 2>&1 > security/bundle-audit-update-${TARGET_VERSION}.md
-  bundle exec bundle-audit check 2>&1 > security/bundle-audit-output-${TARGET_VERSION}.md
+  bundle exec bundle-audit update 2>&1 > security/bundle-audit-update.md
+  bundle exec bundle-audit check 2>&1 > security/bundle-audit-output.md
   RES=$?
   if [ "${RES}" == 0 ]; then
     echo "bundle-audit OK"
   else
     echo "bundle-audit Failed: ${RES}"
-    cat security/bundle-audit-output-${TARGET_VERSION}.md
+    cat security/bundle-audit-output.md
     # exit 1
   fi
 fi
@@ -378,9 +378,9 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
 
   for f in \
     version.txt CHANGELOG.md \
-    security/brakeman-output-${TARGET_VERSION}.md \
-    security/bundle-audit-update-${TARGET_VERSION}.md \
-    security/bundle-audit-output-${TARGET_VERSION}.md \
+    security/brakeman-output.md \
+    security/bundle-audit-update.md \
+    security/bundle-audit-output.md \
     db/dumps/current_schema.sql db/structure.sql; do
 
     cp -f ${f} ${DEV_COPY}/${f}
