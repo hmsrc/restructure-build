@@ -22,7 +22,7 @@ yum install -y git yarn \
   openssl-devel readline-devel zlib-devel \
   gcc gcc-c++ make which mlocate \
   tar bzip2 \
-  words
+  words unzip
 
 amazon-linux-extras enable postgresql${PGVER} vim epel
 yum clean metadata
