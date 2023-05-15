@@ -10,7 +10,7 @@ PGVER=12
 
 yum update -y
 yum install -y deltarpm sudo rsync adduser
-yum update
+yum update -y
 
 curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo
 curl --silent --location https://rpm.nodesource.com/setup_14.x | bash -
