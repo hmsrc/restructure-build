@@ -391,7 +391,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
     security/bundle-audit-output.md \
     db/dumps/current_schema.sql db/structure.sql; do
 
-    cp -f ${f} ${DEV_COPY}/${f}
+    cp -a -f ${f} ${DEV_COPY}/${f}
 
   done
 
