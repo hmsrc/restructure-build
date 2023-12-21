@@ -60,9 +60,9 @@ rm -rf ${APPS_BUILD_DIR}
 rm -rf ${DEV_COPY}
 echo "Cloning repo"
 cd $(dirname ${BUILD_DIR})
-git clone ${REPO_URL} ${BUILD_DIR}
-git clone ${DOCS_REPO_URL} ${DOCS_BUILD_DIR}
-git clone ${APPS_REPO_URL} ${APPS_BUILD_DIR}
+git clone ${REPO_URL} ${BUILD_DIR} > /dev/null
+git clone ${DOCS_REPO_URL} ${DOCS_BUILD_DIR} > /dev/null
+git clone ${APPS_REPO_URL} ${APPS_BUILD_DIR} > /dev/null
 
 if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
   echo "Failed to get the build repo"
@@ -138,11 +138,11 @@ if [ "${PROD_REPO_URL}" ]; then
   git remote set-url --add origin ${PROD_REPO_URL}
   git remote set-url --push --add origin ${PROD_REPO_URL}
   git remote set-url --delete origin ${REPO_URL}
-  git fetch
+  git fetch > /dev/null
 
   head -32 CHANGELOG.md | tail -13
 
-  git merge origin/${BUILD_GIT_BRANCH} -X ours -m "Merge remote" && git commit -a -m "Commit"
+  git merge origin/${BUILD_GIT_BRANCH} -X ours -m "Merge remote" > /dev/null && git commit -a -m "Commit"
 
   head -32 CHANGELOG.md | tail -13
   git push -f
@@ -161,7 +161,7 @@ echo "Sync app reference"
 # so that it is versioned and can be deployed
 rm -rf docs/app_reference
 mkdir -p docs/app_reference
-rsync -av --delete ${DOCS_BUILD_DIR}/app_reference docs
+rsync -a --delete ${DOCS_BUILD_DIR}/app_reference docs
 git add docs
 
 echo "Setting up org specific ${APPS_BUILD_DIR}/source"
@@ -170,15 +170,15 @@ cd ${APPS_BUILD_DIR}/source
 # then recreate them as real directories
 for f in $(find . -type d); do
   if [ -L ${BUILD_DIR}/$f ]; then
-    rm -r ${BUILD_DIR}/$f
-    cp -r $f ${BUILD_DIR}/$f
+    rm -rf ${BUILD_DIR}/$f
   fi
+  mkdir -p ${BUILD_DIR}/$f
 done
 
 # Remove symlinks that point back to files in the -apps repo
 # then copy them across as real files
 for f in $(find . -type f); do
-  rm -r ${BUILD_DIR}/$f
+  rm -f ${BUILD_DIR}/$f
   cp $f ${BUILD_DIR}/$f
 done
 
