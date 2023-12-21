@@ -1,8 +1,9 @@
 RUBY_V=3.0.6
 GIT_EMAIL=youremail
 BUILD_GIT_BRANCH=new-master
-REPO_URL="https://github.com/somerep"
-DOCS_REPO_URL="https://github.com/somerep_for_docs"
+REPO_URL="https://github.com/yourorg/restructure.git"
+DOCS_REPO_URL="https://github.com/yourorg/restructure-docs.git"
+APPS_REPO_URL="https://github.com/yourorg/restructure-apps.git"
 # If you want to commit the build to a different repo, uncomment and add it here
 # PROD_REPO_URL="https://github.com/prodrepo"
 # To prevent pushing results back to the dev repo too, uncomment this
