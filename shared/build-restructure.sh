@@ -20,7 +20,13 @@ echo > /shared/build_version.txt
 
 function check_version_and_exit() {
   IFS='.' read -a OLD_VER_ARRAY < version.txt
-  if [ -z "${OLD_VER_ARRAY[0]}" ] || [ -z "${OLD_VER_ARRAY[1]}" ] || [ -z "${OLD_VER_ARRAY[2]}" ]; then
+  if [ -z "${OLD_VER_ARRAY[0]}" ] || [ -z "${OLD_VER_ARRAY[1]}" ]; then
+    echo "Current version is incorrect format: $(cat version.txt)"
+    echo "This can often be resolved simply by re-running the build script."
+    exit 1
+  fi
+
+  if [ "$1" != 'minor' ] && [ -z "${OLD_VER_ARRAY[2]}" ]; then
     echo "Current version is incorrect format: $(cat version.txt)"
     echo "This can often be resolved simply by re-running the build script."
     exit 1
@@ -476,7 +482,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
     git commit -a -m "Commit"
   echo "Final push to dev"
   git push -f
-  git tag -a "${TARGET_VERSION}" -m "Push release"
+  git tag -a "${TARGET_VERSION}-dev" -m "Push release back to dev"
   git push origin --tags
   git push origin --all
 fi
