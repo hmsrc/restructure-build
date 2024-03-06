@@ -1,4 +1,4 @@
-RUBY_V=3.0.6
+RUBY_V=3.2.2
 GIT_EMAIL=youremail
 BUILD_GIT_BRANCH=new-master
 REPO_URL="https://github.com/yourorg/restructure.git"

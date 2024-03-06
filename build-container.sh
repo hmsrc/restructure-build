@@ -17,12 +17,12 @@ curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.rep
 yum install https://rpm.nodesource.com/pub_16.x/nodistro/repo/nodesource-release-nodistro-1.noarch.rpm -y
 yum install nodejs -y --setopt=nodesource-nodejs.module_hotfixes=1
 
-amazon-linux-extras
+# amazon-linux-extras
 
 yum install -y git yarn \
-  llvm-toolset-7-clang \
   openssl-devel readline-devel zlib-devel \
   gcc gcc-c++ make which mlocate \
+  libffi libffi-devel libyaml libyaml-devel rsync sudo \
   tar bzip2 \
   words unzip
 
@@ -31,10 +31,10 @@ if [ $? != 0 ]; then
   exit 7
 fi
 
-amazon-linux-extras enable postgresql${PGVER} vim epel
+# amazon-linux-extras enable postgresql${PGVER} vim epel
 yum clean metadata
 
-yum install -y postgresql postgresql-server postgresql-devel postgresql-contrib
+yum install -y postgresql15 postgresql15-server libpq-devel postgresql15-contrib
 
 if [ -z "$(which psql)" ]; then
   echo "Failed to install psql"
