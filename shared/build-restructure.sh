@@ -230,7 +230,6 @@ bundle remove solargraph
 
 bundle install --system --no-deployment
 bundle package --all
-bundle cache --all
 
 if [ ! -d vendor/cache ]; then
   echo "No vendor/cache after bundle package"
@@ -243,7 +242,8 @@ if [ "$?" != "0" ]; then
   exit 7
 fi
 
-git add --force vendor/cache vendor/bundle
+git add --force vendor/cache
+git add --force vendor/bundle
 git add Gemfile*
 git add .ruby-version
 
