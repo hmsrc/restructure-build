@@ -1,5 +1,5 @@
 #
-RUBY_V=3.3.6
+RUBY_V=3.4.2
 GIT_EMAIL=phil_ayres@hms.harvard.edu
 BUILD_GIT_BRANCH=new-master
 REPO_URL="https://github.com/hmsrc/fphs-restructure.git"
