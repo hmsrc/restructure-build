@@ -12,26 +12,36 @@ BUILD_DIR=/output/restructure
 DOCS_BUILD_DIR=${BUILD_DIR}-docs
 APPS_BUILD_DIR=${BUILD_DIR}-apps
 DEV_COPY=${BUILD_DIR}-dev
-
+REMOVE_GEMS="e2mmap solargraph"
+if [ "$1" == 'minor' ]; then
+  VERSION_STEP=minor
+fi
+  
 cp /shared/.netrc ${HOME}/.netrc
 chmod 600 ${HOME}/.netrc
 
 echo > /shared/build_version.txt
 
 function check_version_and_exit() {
+  OLD_VER=$(cat version.txt)
   IFS='.' read -a OLD_VER_ARRAY < version.txt
   if [ -z "${OLD_VER_ARRAY[0]}" ] || [ -z "${OLD_VER_ARRAY[1]}" ]; then
-    echo "Current version is incorrect format: $(cat version.txt)"
+    echo "Current version is incorrect format for 'minor' update: $(cat version.txt)"
     echo "This can often be resolved simply by re-running the build script."
     exit 1
   fi
 
   if [ "$1" != 'minor' ] && [ -z "${OLD_VER_ARRAY[2]}" ]; then
-    echo "Current version is incorrect format: $(cat version.txt)"
-    echo "This can often be resolved simply by re-running the build script."
-    exit 1
+    echo "Current version is incorrect format for 'patch' update: $(cat version.txt)"
+    if [ "$1" == 'failfast' ] || [ "$2" == 'failfast' ]; then
+      echo "This can often be resolved simply by re-running the build script."
+      exit 1
+    fi
+    echo "${OLD_VER}.0" > version.txt
+    check_version_and_exit $1 failfast
   fi
 }
+
 
 # Setup App environment
 export FPHS_POSTGRESQL_DATABASE=${DB_NAME}
@@ -76,13 +86,23 @@ if [ ! -f ${BUILD_DIR}/.git/HEAD ]; then
 fi
 
 cd ${BUILD_DIR}
-rbenv local ${RUBY_V}
-rbenv global ${RUBY_V}
+if [ -z "${RUBY_V}" ]; then
+  RUBY_V="$(cat ${BUILD_DIR}/.ruby-version)"  
+  echo "RUBY_V is not set. Using value in source ${BUILD_DIR}/.ruby-version = ${RUBY_V}"
+fi
+rbenv local ${RUBY_V} && rbenv global ${RUBY_V}
 
 if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
-  rbenv install ${RUBY_V}
-  rbenv local ${RUBY_V}
+  echo "Installing new ruby version ${RUBY_V}"
+  git -C /root/.rbenv/plugins/ruby-build pull && \
+  rbenv install ${RUBY_V} && \
+  rbenv local ${RUBY_V} && \
   rbenv global ${RUBY_V}
+
+  if [ $? != 0 ]; then
+    echo "Failed to install new ruby version ${RUBY_V}"
+    exit 18
+  fi
 fi
 
 if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
@@ -134,7 +154,7 @@ if [ "${ONLY_PUSH_TO_PROD_REPO}" != 'true' ]; then
   rsync -a --delete ${BUILD_DIR}/ ${DEV_COPY}/
 fi
 
-check_version_and_exit
+check_version_and_exit ${VERSION_STEP}
 
 echo "Setup remote repos"
 if [ "${PROD_REPO_URL}" ]; then
@@ -195,16 +215,25 @@ git add db
 
 echo "Handle rbenv"
 
-if [ "$(rbenv local)" != "${RUBY_V}" ] || [ -z "$(ruby --version | grep ${RUBY_V})" ]; then
+if which ruby; then
+  RUBY_EXE_V=$(ruby --version | grep ${RUBY_V})
+fi
+
+if [ "$(rbenv local)" != "${RUBY_V}" ] || [ -z "${RUBY_EXE_V}" ]; then
   echo "Installing new ruby version ${RUBY_V}"
-  git -C /root/.rbenv/plugins/ruby-build pull
-  rbenv install ${RUBY_V}
-  rbenv local ${RUBY_V}
+  git -C /root/.rbenv/plugins/ruby-build pull && \
+  rbenv install ${RUBY_V} && \
+  rbenv local ${RUBY_V} && \
   rbenv global ${RUBY_V}
+
+  if [ $? != 0 ]; then
+    echo "Failed to install new ruby version ${RUBY_V}"
+    exit 19
+  fi
 fi
 
 if [ "$(rbenv local)" != "${RUBY_V}" ]; then
-  echo "Failed to install or use ruby version ${RUBY_V}. rbenv is using $(rbenv local). The file .ruby-version is #(cat .ruby-version)"
+  echo "Failed to install or use ruby version ${RUBY_V}. rbenv is using $(rbenv local). The file .ruby-version is $(cat .ruby-version)"
   exit 70
 fi
 
@@ -219,8 +248,9 @@ rm -f .bundle/config
 gem install bundler
 git --version
 
-bundle remove e2mmap
-bundle remove solargraph
+for gem in ${REMOVE_GEMS}; do
+  bundle info ${gem} 2> /dev/null && bundle remove ${gem}
+done
 
 bundle install --system --no-deployment
 bundle package --all
@@ -285,7 +315,6 @@ CREATE EXTENSION if not exists pgcrypto;
 EOF
 
 echo "Upversion code"
-rm -f app-scripts/.ruby_version
 TARGET_VERSION=$(ruby app-scripts/upversion.rb)
 
 if [ -z "${TARGET_VERSION}" ]; then
@@ -293,7 +322,7 @@ if [ -z "${TARGET_VERSION}" ]; then
   exit 1
 fi
 
-check_version_and_exit
+check_version_and_exit ${VERSION_STEP}
 echo "Target version ${TARGET_VERSION}"
 
 echo "Update CHANGELOG"
