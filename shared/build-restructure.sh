@@ -95,7 +95,7 @@ rbenv local ${RUBY_V} && rbenv global ${RUBY_V}
 if [ "$(cat ${BUILD_DIR}/.ruby-version)" != ${RUBY_V} ]; then
   echo "Installing new ruby version ${RUBY_V}"
   git -C /root/.rbenv/plugins/ruby-build pull && \
-  rbenv install ${RUBY_V} && \
+  rbenv install --skip-existing ${RUBY_V} && \
   rbenv local ${RUBY_V} && \
   rbenv global ${RUBY_V}
 
@@ -222,7 +222,7 @@ fi
 if [ "$(rbenv local)" != "${RUBY_V}" ] || [ -z "${RUBY_EXE_V}" ]; then
   echo "Installing new ruby version ${RUBY_V}"
   git -C /root/.rbenv/plugins/ruby-build pull && \
-  rbenv install ${RUBY_V} && \
+  rbenv install --skip-existing ${RUBY_V} && \
   rbenv local ${RUBY_V} && \
   rbenv global ${RUBY_V}
 

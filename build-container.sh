@@ -3,6 +3,7 @@
 #    docker build . --no-cache -t consected/restructure-build
 
 # set -xv
+source /shared/default-ruby-version.sh
 source /shared/build-vars.sh
 export HOME=/root
 
@@ -65,7 +66,13 @@ rbenv rehash
 
 # Install ruby, etc
 if [ "$(rbenv local)" != "${RUBY_V}" ]; then
-  rbenv install ${RUBY_V}
-  rbenv global ${RUBY_V}
+  echo "Installing new ruby version ${RUBY_V}"
+  git -C /root/.rbenv/plugins/ruby-build pull && \
+  rbenv install --skip-existing ${RUBY_V} && \
+  rbenv global ${RUBY_V} && \
   gem install bundler
+  if [ $? != 0 ]; then
+    echo "Failed to install new ruby version ${RUBY_V} and bundler gem"
+    exit 18
+  fi
 fi
