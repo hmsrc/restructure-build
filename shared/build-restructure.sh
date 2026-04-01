@@ -42,7 +42,6 @@ function check_version_and_exit() {
   fi
 }
 
-
 # Setup App environment
 export FPHS_POSTGRESQL_DATABASE=${DB_NAME}
 export FPHS_POSTGRESQL_USERNAME=${DB_USER}
@@ -210,6 +209,9 @@ echo "Add db"
 rm -f db/app_configs
 rm -f db/app_migrations
 rm -f db/app_specific
+rm -f spec/features/apps
+rm -f spec/system/apps
+rm -f spec/support/apps
 
 git add db
 
@@ -252,8 +254,11 @@ for gem in ${REMOVE_GEMS}; do
   bundle info ${gem} 2> /dev/null && bundle remove ${gem}
 done
 
-bundle install --system --no-deployment
-bundle package --all
+bundle config set path.system true
+bundle config set deployment false
+bundle install
+bundle config set cache_all true
+bundle package
 
 if [ ! -d vendor/cache ]; then
   echo "No vendor/cache after bundle package"
