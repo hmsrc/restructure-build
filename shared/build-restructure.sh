@@ -209,9 +209,9 @@ echo "Add db"
 rm -f db/app_configs
 rm -f db/app_migrations
 rm -f db/app_specific
-rm -f spec/features/apps
-rm -f spec/system/apps
-rm -f spec/support/apps
+rm -rf spec/features/apps
+rm -rf spec/system/apps
+rm -rf spec/support/apps
 
 git add db
 
