@@ -12,7 +12,7 @@ if [ -z "${RUBY_V}" ]; then
   exit 5
 fi
 
-PGVER=15
+PGVER=18
 NODEJS_VERSION=23
 
 yum update -y
